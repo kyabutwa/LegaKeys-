@@ -47,8 +47,9 @@ async function api(request: Request, env: Env): Promise<Response> {
 
   if (url.pathname === "/api/health") {
     try {
-      const rows = await query(env, "select current_database() as database, current_schema() as schema, now() as server_time");
-      return cors(json({ ok: true, state: "CONNECTED", transport: "cloudflare-hyperdrive", ...rows[0] }), request);
+      const rows = await query(env, "select current_database() as database, current_schema() as schema, now() as server_time, exists (select 1 from information_schema.schemata where schema_name = 'legakeys') as canonical_schema_present, exists (select 1 from legakeys.runtime_contract where contract_id = 1 and canonical_schema = 'legakeys' and legacy_runtime_allowed = false) as canonical_contract_valid");
+      const ready = Boolean(rows[0]?.canonical_schema_present && rows[0]?.canonical_contract_valid);
+      return cors(json({ ok: ready, state: ready ? "CONNECTED" : "CANONICAL_MIGRATION_REQUIRED", transport: "cloudflare-hyperdrive", ...rows[0] }), request);
     } catch (e) {
       const code = e instanceof Error && "code" in e ? String((e as Error & {code?: string}).code) : "DATABASE_ERROR";
       return cors(json({ ok: false, state: code === "DATABASE_NOT_CONFIGURED" ? "NOT_CONFIGURED" : "UNAVAILABLE", code }, code === "DATABASE_NOT_CONFIGURED" ? 503 : 502), request);
