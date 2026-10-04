@@ -164,7 +164,9 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION legakeys.guard_execution_attempt_mutation()
-RETURNS TRIGGER LANGUAGE plpgsql AS $
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $func$
 BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'LEGAKEYS_EXECUTION_IMMUTABLE';
@@ -183,7 +185,7 @@ BEGIN
   END IF;
   RETURN NEW;
 END;
-$;
+$func$;
 
 DROP TRIGGER IF EXISTS action_executions_no_update ON legakeys.action_executions;
 CREATE TRIGGER action_executions_mutation_guard
