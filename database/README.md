@@ -1,51 +1,95 @@
-# LegaKeys — Neon production database
+# LegaKeys — canonical Neon cutover
 
-Production path:
+## Objective
 
-Production UI → Cloudflare Worker → Hyperdrive → Neon Postgres
+The existing Neon project remains the database. We do **not** create a second project.
 
-Cloudflare recommends Hyperdrive for Workers-to-Postgres/Neon connections. The Worker intentionally returns NOT_CONFIGURED until the real Neon binding exists; it never fabricates connected state.
+The new LegaKeys architecture is installed as the canonical application boundary under the PostgreSQL schema:
 
-## Canonical schema bootstrap
+`legakeys`
 
-Apply the existing module schemas to a Neon development branch in dependency order:
+Legacy/public objects are not automatically deleted. They are outside the LegaKeys runtime path until an audited migration maps their data into the canonical model.
 
-1. implementation/identity/schema.sql
-2. implementation/world/schema.sql
-3. implementation/context/schema.sql
-4. implementation/capability/schema.sql
-5. implementation/authority/schema.sql
-6. implementation/beataccess/schema.sql
-7. implementation/beatvisitor/schema.sql
-8. implementation/services/schema.sql
-9. implementation/action-event-evidence/schema.sql
-10. implementation/genesis/schema.sql
-11. implementation/digital-twin/schema.sql
-12. implementation/workspaces/schema.sql
-13. implementation/world-intelligence/schema.sql
-14. implementation/constantyna/schema.sql
+This is deliberate: the new system **supersedes the old runtime contract without destroying potentially recoverable data**.
 
-Validate on a development branch before applying the same migration set to production.
+## Cutover rule
 
-## API
+```
+LEGACY / PUBLIC OBJECTS
+        │
+        │  preserved, not authoritative
+        ▼
+┌──────────────────────────┐
+│  LEGAKEYS CANONICAL      │
+│  PostgreSQL schema       │
+│  `legakeys`             │
+└──────────────────────────┘
+        │
+        ▼
+CLOUDFLARE WORKER
+        │
+        ▼
+PRODUCTION UI
+```
 
-GET /api/health — real Neon connectivity check.
-GET /api/services — reads canonical services.
-GET /api/places — reads canonical places.
-GET /api/activity — reads immutable events.
-GET /api/workspaces — reads workspace records.
-GET /api/identity — reads identity/account/person projections.
-GET /api/me — AUTH_REQUIRED until canonical session validation is connected.
-POST /api/service-requests — AUTH_REQUIRED until canonical session + authorization are connected.
+The Worker uses fully-qualified `legakeys.*` tables. It does not fall back to legacy tables.
 
-No identity is inferred from an unauthenticated browser. No consequential write bypasses authorization.
+## Migration order
+
+Run from a controlled environment with the existing Neon project connection:
+
+1. `database/0000_canonical_runtime_contract.sql`
+2. `implementation/identity/schema.sql`
+3. `implementation/world/schema.sql`
+4. `implementation/context/schema.sql`
+5. `implementation/capability/schema.sql`
+6. `implementation/authority/schema.sql`
+7. `implementation/beataccess/schema.sql`
+8. `implementation/beatvisitor/schema.sql`
+9. `implementation/services/schema.sql`
+10. `implementation/action-event-evidence/schema.sql`
+11. `implementation/genesis/schema.sql`
+12. `implementation/digital-twin/schema.sql`
+13. `implementation/workspaces/schema.sql`
+14. `implementation/world-intelligence/schema.sql`
+15. `implementation/constantyna/schema.sql`
+
+Use `database/apply-canonical-schema.sh` for deterministic application with `ON_ERROR_STOP=1`.
+
+## Safety boundary
+
+The cutover contract initially sets:
+
+- `legacy_runtime_allowed = false`
+- `consequential_writes_enabled = false`
+
+That means the new architecture can be installed and validated without accidentally turning an old data path into an execution path.
+
+Only after:
+
+- schema verification,
+- data-quality validation,
+- identity/session validation,
+- authorization validation,
+- Action/Event/Evidence validation,
+- production API verification,
+
+should consequential writes be enabled.
+
+## Neon workflow
+
+Use a Neon branch for migration validation before changing the production branch. Neon branches are isolated environments designed for testing schema/data changes without affecting the parent branch. citeturn0search1turn0search3
+
+Production should be treated as the final promotion target, not the place where schema experimentation happens. citeturn0search3
 
 ## Cloudflare
 
-After creating the Neon project, create a Hyperdrive configuration for its PostgreSQL connection string and add:
+Production path:
 
-[[hyperdrive]]
-binding = "HYPERDRIVE"
-id = "<NEON_HYPERDRIVE_ID>"
+`Production UI → Cloudflare Worker → Hyperdrive → existing Neon Postgres project`
 
-Keep all database credentials out of GitHub.
+Do not commit `DATABASE_URL`, passwords, API keys, or Hyperdrive credentials.
+
+## Important
+
+This repository change prepares and defines the canonical cutover. It does **not** claim that the user's Neon database has been modified until the actual Neon database connection is available and the migration returns successful verification output.
