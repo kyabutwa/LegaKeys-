@@ -21,6 +21,7 @@ schema_files=(
   implementation/services/schema.sql
   implementation/action-event-evidence/schema.sql
   implementation/core-execution/schema.sql
+  implementation/core-execution/hardening.sql
   implementation/genesis/schema.sql
   implementation/digital-twin/schema.sql
   implementation/workspaces/schema.sql
