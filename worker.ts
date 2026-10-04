@@ -167,13 +167,13 @@ async function api(request: Request, env: Env): Promise<Response> {
       const missing = required.filter(table => !present.has(table));
       const contract = contractRows[0] ?? {};
       const executionGatePresent = triggerRows.some(row => String(row.trigger_name) === "action_execution_authorization_gate");
-      const ready = missing.length === 0 && executionGatePresent && contract.legacy_runtime_allowed === false;
+      const invariantChecks = {\n        legacy_runtime_disabled: contract.legacy_runtime_allowed === false,\n        consequential_writes_disabled: contract.consequential_writes_enabled === false,\n        authorization_gate_present: executionGatePresent\n      };\n      const ready = missing.length === 0 && Object.values(invariantChecks).every(Boolean);
       return cors(json({
         ok: ready,
         state: ready ? "VERIFIED" : "INCOMPLETE",
         consequential_writes_enabled: Boolean(contract.consequential_writes_enabled),
         legacy_runtime_allowed: Boolean(contract.legacy_runtime_allowed),
-        authorization_gate: executionGatePresent ? "VERIFIED" : "MISSING",
+        authorization_gate: executionGatePresent ? "VERIFIED" : "MISSING",\n        invariant_checks: invariantChecks,
         required_table_count: required.length,
         present_table_count: required.length - missing.length,
         missing_tables: missing,
