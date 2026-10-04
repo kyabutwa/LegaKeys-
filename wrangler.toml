@@ -1,4 +1,4 @@
-name = "legakeys-production-ui"
+name = "legakeys"
 main = "worker.ts"
 compatibility_date = "2026-10-04"
 
@@ -6,9 +6,8 @@ compatibility_date = "2026-10-04"
 directory = "./dist"
 binding = "ASSETS"
 
-# After creating Neon, create a Cloudflare Hyperdrive configuration
-# and add its returned ID here:
-#
+# Neon is the canonical production database.
+# A Cloudflare Hyperdrive binding may be added once its real ID is available.
 # [[hyperdrive]]
 # binding = "HYPERDRIVE"
 # id = "<NEON_HYPERDRIVE_ID>"
