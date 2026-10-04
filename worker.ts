@@ -118,6 +118,37 @@ async function api(request: Request, env: Env): Promise<Response> {
       const rows = await query(env, "select i.identity_id, i.entity_id, i.identity_type, i.state, i.verification_state, a.account_id, a.state as account_state, p.person_id, p.legal_name, p.display_name from legakeys.identities i left join legakeys.accounts a on a.identity_id=i.identity_id left join legakeys.persons p on p.entity_id=i.entity_id order by i.created_at desc limit 100");
       return cors(json({ ok: true, state: "VERIFIED", data: rows }), request);
     }
+    if (request.method === "GET" && url.pathname === "/api/core-domains") {
+      const domains = {
+        workspaces: ["workspaces","workspace_memberships","workspace_capabilities","workspace_delegations","workspace_work_items","workspace_audit"],
+        digital_twin: ["digital_twins","digital_twin_properties","digital_twin_observations","digital_twin_relationships","digital_twin_transitions","digital_twin_scenarios"],
+        constantyna: ["constantyna_runs","constantyna_inputs","constantyna_intents","constantyna_needs","constantyna_context_snapshots","constantyna_responses","constantyna_memory","constantyna_handoffs"],
+        genesis: ["genesis_runs","genesis_inputs","genesis_findings","genesis_proposals","genesis_outputs","genesis_tool_invocations","genesis_evaluations"],
+        world_intelligence: ["spatial_observations","map_features","weather_observations","earth_system_observations","climate_indicators","human_understandings","contextual_understandings","world_intelligence_quarantine","world_intelligence_fibonacci_policies"]
+      };
+      const expected = Object.entries(domains).flatMap(([domain, tables]) => tables.map(table => ({ domain, table })));
+      const tableRows = await query(env, "select table_name from information_schema.tables where table_schema='legakeys' and table_name = any($1::text[])", [expected.map(x => x.table)]);
+      const present = new Set(tableRows.map(row => String(row.table_name)));
+      const matrix = Object.fromEntries(Object.entries(domains).map(([domain, tables]) => {
+        const missing = tables.filter(table => !present.has(table));
+        return [domain, { state: missing.length === 0 ? "VERIFIED" : "INCOMPLETE", required_table_count: tables.length, present_table_count: tables.length - missing.length, missing_tables: missing }];
+      }));
+      const linkageChecks = [
+        ["workspace_to_authorization", "workspace_work_items", ["authorization_ref"]],
+        ["digital_twin_to_event_evidence", "digital_twin_transitions", ["event_ref","evidence_refs"]],
+        ["constantyna_to_session", "constantyna_runs", ["session_id"]],
+        ["genesis_to_authorization", "genesis_proposals", ["authorization_id"]],
+        ["genesis_to_action", "genesis_tool_invocations", ["authorization_id","action_id"]],
+        ["world_to_provenance", "spatial_observations", ["provenance"]],
+        ["world_to_context", "contextual_understandings", ["authority_refs","capability_refs","human_understanding_refs"]]
+      ];
+      const columnRows = await query(env, "select table_name, column_name from information_schema.columns where table_schema='legakeys' and table_name = any($1::text[])", [linkageChecks.map(x => x[1])]);
+      const columns = new Set(columnRows.map(row => `${row.table_name}.${row.column_name}`));
+      const linkage = linkageChecks.map(([name, table, requiredColumns]) => ({ name, state: requiredColumns.every(column => columns.has(`${table}.${column}`)) ? "VERIFIED" : "INCOMPLETE", table, required_columns: requiredColumns }));
+      const ready = expected.every(x => present.has(x.table)) && linkage.every(x => x.state === "VERIFIED");
+      return cors(json({ ok: ready, state: ready ? "VERIFIED" : "INCOMPLETE", domain_count: Object.keys(domains).length, matrix, linkage }), request);
+    }
+
     if (request.method === "GET" && url.pathname === "/api/me") {
       return cors(json({ ok: false, state: "AUTH_REQUIRED", code: "CANONICAL_SESSION_REQUIRED" }, 401), request);
     }
