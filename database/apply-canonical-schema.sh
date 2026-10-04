@@ -20,6 +20,7 @@ schema_files=(
   implementation/beatvisitor/schema.sql
   implementation/services/schema.sql
   implementation/action-event-evidence/schema.sql
+  implementation/action-event-evidence/integration.sql
   implementation/core-execution/schema.sql
   implementation/core-execution/hardening.sql
   implementation/genesis/schema.sql
