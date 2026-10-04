@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${DATABASE_URL:?DATABASE_URL is required}"
+
+export PGOPTIONS="${PGOPTIONS:-}"
+
+echo "== LegaKeys canonical database migration =="
+echo "Target is supplied through DATABASE_URL; credentials are never written to Git."
+
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/0000_canonical_runtime_contract.sql
+
+schema_files=(
+  implementation/identity/schema.sql
+  implementation/world/schema.sql
+  implementation/context/schema.sql
+  implementation/capability/schema.sql
+  implementation/authority/schema.sql
+  implementation/beataccess/schema.sql
+  implementation/beatvisitor/schema.sql
+  implementation/services/schema.sql
+  implementation/action-event-evidence/schema.sql
+  implementation/genesis/schema.sql
+  implementation/digital-twin/schema.sql
+  implementation/workspaces/schema.sql
+  implementation/world-intelligence/schema.sql
+  implementation/constantyna/schema.sql
+)
+
+for file in "${schema_files[@]}"; do
+  echo "Applying $file"
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file"
+done
+
+echo "== Verifying canonical LegaKeys contract =="
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc   "select product_name || '|' || contract_version || '|' || canonical_schema || '|' || legacy_runtime_allowed || '|' || consequential_writes_enabled from legakeys.runtime_contract where contract_id=1"
+
+echo "== Canonical LegaKeys schema applied successfully =="
