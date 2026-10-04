@@ -196,6 +196,24 @@ BEGIN
   IF NEW.state IN ('AUTHORIZED','EXECUTING') AND NEW.authorization_id IS NULL THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_REQUIRED';
   END IF;
+
+  IF NEW.state = 'AUTHORIZED' THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM legakeys.authorization_decisions d
+      WHERE d.authorization_id = NEW.authorization_id
+        AND d.principal_entity_id = NEW.principal_id
+        AND d.target_type = NEW.target_type
+        AND d.target_id = NEW.target_id
+        AND d.action_class = NEW.action_type
+        AND d.decision = 'APPROVED'
+        AND d.truth_state IN ('VERIFIED','DECLARED')
+        AND (d.effective_from IS NULL OR now() >= d.effective_from)
+        AND (d.expires_at IS NULL OR now() < d.expires_at)
+    ) THEN
+      RAISE EXCEPTION 'LEGAKEYS_ACTION_AUTHORIZATION_INVALID';
+    END IF;
+  END IF;
   RETURN NEW;
 END;
 $func$;
