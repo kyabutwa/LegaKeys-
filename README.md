@@ -1,14 +1,43 @@
-# LegaKeys
+# LEGAKEYS
+
+**LegaKeys**
 
 **Intelligent Living Infrastructure for Participating People and Communities**
 
-> Your identity. Your world. One ecosystem.
+> **Who you are. Where you Belong. One ecosystem.**
 
-**Built by United of Balega.**
+**Built by United of Balega**
 
-LegaKeys is an operational platform connecting identity, participation, relationships, context, capabilities, authority, access, services, actions, events, evidence, intelligence and outcomes.
+**Supreme Executive Council 9**
 
-## Canonical execution rule
+---
+
+## Master architecture
+
+```
+UNITED OF BALEGA
+│
+└── LEGAKEYS
+    ├── 01 WORLD
+    ├── 02 BEATIDENTITY
+    ├── 03 IDENTITY & ACCOUNT
+    ├── 04 CONTEXT
+    ├── 05 CAPABILITY
+    ├── 06 AUTHORITY
+    ├── 07 LEGAKEYS OPERATING SYSTEM
+    ├── 08 COMMUNITY OPERATING SYSTEM
+    ├── 09 LEGAKEYS DIGITAL TWIN
+    ├── 10 LIVING INFRASTRUCTURE
+    ├── 11 BEATACCESS
+    ├── 12 SERVICES
+    ├── 13 OUTCOMES
+    ├── 14 COMMUNITY INTELLIGENCE
+    ├── 15 HUMAN INTELLIGENCE
+    ├── 16 URBAN INTELLIGENCE
+    └── 17 CORE EXECUTION MODEL
+```
+
+## Canonical security invariant
 
 ```
 NO AUTHORIZATION
@@ -16,33 +45,22 @@ NO AUTHORIZATION
 NO CONSEQUENTIAL ACTION
 ```
 
-## Architecture layers
+## Canonical distinctions
 
-1. World and ontology
-2. Identity and participation
-3. Account and authentication
-4. Context, capability and authority
-5. Operating systems and workspaces
-6. Digital Twin and living infrastructure
-7. Access and services
-8. Outcomes
-9. GENESIS and CONSTANTYNA
-10. Urban intelligence
-11. Governance, security and platform contracts
+Identity ≠ Account  
+Account ≠ Participant  
+Participant ≠ Role  
+Role ≠ Authority  
+Subscription ≠ Authorization  
+Authentication ≠ Authorization  
+Relationship ≠ Authorization  
+Capability ≠ Authorization  
+Team Membership ≠ Authorization  
+Team Capability ≠ Team Authority  
+Biometric Recognition ≠ Authorization  
+Interface ≠ Authority  
+Digital Twin ≠ Authority  
+Workspace Visibility ≠ Authority  
+Understanding LegaKeys ≠ Controlling LegaKeys
 
-## Repository
-
-The numbered directories are the canonical 17-domain model. `platform/`, `governance/` and `specs/` contain cross-domain contracts.
-
-Core distinctions:
-
-- Identity ≠ Account
-- Account ≠ Participant
-- Participant ≠ Role
-- Role ≠ Authority
-- Authentication ≠ Authorization
-- Capability ≠ Authorization
-- Team Membership ≠ Authorization
-- Biometric Recognition ≠ Authorization
-- Digital Twin ≠ Authority
-- Understanding LegaKeys ≠ Controlling LegaKeys
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for the complete canonical model.

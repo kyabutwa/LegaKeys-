@@ -1,19 +1,60 @@
-# Normative Specifications
+# LEGAKEYS NORMATIVE SPECIFICATIONS
 
-## Identity and participation
+## 1. Identity
+
 Identity ≠ Account ≠ Participant ≠ Role ≠ Authority.
 
-## Authorization
-Authorization requires explicit subject, capability, resource/place/service, action, context, policy, conditions, scope, effective time, expiration and revocation state.
+## 2. Authorization
 
-## Truth
-VERIFIED, DECLARED, OBSERVED, INFERRED, PROPOSED and UNKNOWN are explicit truth states.
+A consequential authorization decision must account for the subject, capability, resource/place/service, action, context, policy, conditions, scope, effective time, expiration and revocation state as applicable.
 
-## Action
-REQUEST → VALIDATE → CONTEXTUALIZE → CHECK CAPABILITY → EVALUATE AUTHORIZATION → EXECUTE → EVENT → EVIDENCE → OUTCOME.
+## 3. Truth states
 
-## AI
-GENESIS and CONSTANTYNA cannot self-authorize or bypass the same authorization boundary applied to other actors.
+```
+VERIFIED
+DECLARED
+OBSERVED
+INFERRED
+PROPOSED
+UNKNOWN
+```
 
-## History
+Truth states must not be silently collapsed into certainty.
+
+## 4. Action
+
+```
+INTENT
+  ↓
+PROPOSAL
+  ↓
+AUTHORIZATION
+  ↓
+ACTION
+  ↓
+EVENT
+  ↓
+EVIDENCE
+  ↓
+OUTCOME
+```
+
+## 5. Intelligence
+
+GENESIS and CONSTANTYNA can understand, reason, assist and propose within their boundaries. They cannot self-authorize.
+
+## 6. Access
+
+Credential/interface recognition produces a signal. BeatAccess evaluates the governed context, capability, policy and authorization before consequential access.
+
+## 7. History
+
 Events and evidence are historically immutable.
+
+## 8. Service truth
+
+No fabricated provider, transaction, availability, integration, live state or completion.
+
+## 9. Workspace separation
+
+LegaKeys Workspace and Community Operating Workspace are separate operating environments connected through governed identity, relationships, context, capabilities and authorization.
