@@ -85,6 +85,7 @@ BEGIN
   SELECT * INTO a FROM legakeys.actions WHERE id = p_action_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'LEGAKEYS_ACTION_NOT_FOUND'; END IF;
   IF a.authorization_id IS NULL THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_REQUIRED'; END IF;
+  IF a.state NOT IN ('AUTHORIZED','EXECUTING') THEN RAISE EXCEPTION 'LEGAKEYS_ACTION_NOT_EXECUTABLE'; END IF;
 
   SELECT * INTO z FROM legakeys.runtime_contract WHERE contract_id = 1 FOR SHARE;
   IF NOT FOUND OR z.canonical_schema <> 'legakeys' OR z.legacy_runtime_allowed THEN
