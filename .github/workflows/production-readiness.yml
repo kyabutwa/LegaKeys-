@@ -1,0 +1,25 @@
+name: LegaKeys Production Readiness
+
+on:
+  workflow_dispatch:
+    inputs:
+      production_url:
+        description: "Canonical LegaKeys production Worker URL"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  production-readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify production contract
+        env:
+          LEGAKEYS_PRODUCTION_URL: ${{ inputs.production_url }}
+        run: node scripts/production-readiness.mjs
