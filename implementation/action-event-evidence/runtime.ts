@@ -1,24 +1,16 @@
-import type {
-  Action,
-  ActionExecution,
-  ActionOutcome,
-  Event,
-  Evidence,
-  ExecuteActionCommand,
-  RuntimeAdapter,
-} from "./types";
+import type { Action, ActionExecution, ActionOutcome, Event, Evidence, ExecuteActionCommand, RuntimeAdapter } from "./types";
 
 export interface AuthorizationRuntime {
-  revalidate(input: {
-    action: Action;
-    now: string;
-  }): Promise<{ decision: "ALLOW" | "DENY" | "STEP_UP" | "PENDING" | "UNKNOWN" | "UNAVAILABLE"; reason?: string }>;
+  revalidate(input: { action: Action; now: string }): Promise<{
+    decision: "ALLOW" | "DENY" | "STEP_UP" | "PENDING" | "UNKNOWN" | "UNAVAILABLE";
+    reason?: string;
+  }>;
 }
 
 export interface ActionRuntimeStore {
   transaction<T>(work: (tx: ActionRuntimeStore) => Promise<T>): Promise<T>;
   getActionForUpdate(actionId: string): Promise<Action | null>;
-  getByIdempotency(principalId: string, idempotencyKey: string): Promise<Action | null>;
+  getOutcome(actionId: string): Promise<ActionOutcome | null>;
   markExecuting(action: Action, execution: ActionExecution): Promise<void>;
   appendEvent(event: Event): Promise<void>;
   appendEvidence(evidence: Evidence): Promise<void>;
@@ -32,19 +24,19 @@ export interface ActionRuntimeDependencies {
   authorization: AuthorizationRuntime;
   adapter: RuntimeAdapter;
   now: () => string;
-  ids: { action: () => string; execution: () => string; event: () => string; evidence: () => string; outcome: () => string };
+  ids: {
+    execution(): string;
+    event(): string;
+    evidence(): string;
+    outcome(): string;
+  };
 }
 
 export class ActionRuntimeError extends Error {
   constructor(
     public readonly code:
-      | "NOT_FOUND"
-      | "IDEMPOTENCY_CONFLICT"
-      | "AUTHORIZATION_REQUIRED"
-      | "AUTHORIZATION_DENIED"
-      | "AUTHORIZATION_UNAVAILABLE"
-      | "EXPIRED"
-      | "INVALID_STATE",
+      | "NOT_FOUND" | "IDEMPOTENCY_CONFLICT" | "AUTHORIZATION_DENIED"
+      | "AUTHORIZATION_UNAVAILABLE" | "EXPIRED" | "INVALID_STATE",
     message: string,
   ) {
     super(message);
@@ -63,10 +55,9 @@ export async function executeAction(
       throw new ActionRuntimeError("IDEMPOTENCY_CONFLICT", "Idempotency key does not match the action.");
     }
 
-    if (["SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED", "REVOKED"].includes(action.state)) {
-      const existing = await readExistingOutcome(tx, action.id);
-      if (existing) return existing;
-      throw new ActionRuntimeError("INVALID_STATE", "Action is terminal without an outcome.");
+    const existingOutcome = await tx.getOutcome(action.id);
+    if (existingOutcome && ["SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED", "REVOKED"].includes(action.state)) {
+      return existingOutcome;
     }
 
     const now = deps.now();
@@ -79,9 +70,7 @@ export async function executeAction(
 
     const decision = await deps.authorization.revalidate({ action, now });
     if (decision.decision !== "ALLOW") {
-      action.state =
-        decision.decision === "DENY" ? "REVOKED" :
-        decision.decision === "PENDING" ? "REQUESTED" : "UNKNOWN";
+      action.state = decision.decision === "DENY" ? "REVOKED" : "UNKNOWN";
       action.updatedAt = now;
       await tx.saveAction(action);
       throw new ActionRuntimeError(
@@ -101,7 +90,6 @@ export async function executeAction(
       executionState: "STARTED",
       startedAt: now,
     };
-
     await tx.markExecuting(action, execution);
 
     const started: Event = {
@@ -122,6 +110,7 @@ export async function executeAction(
 
     const result = await deps.adapter.execute(action, execution);
     const finishedAt = deps.now();
+
     execution.executionState =
       result.status === "COMPLETED" ? "COMPLETED" :
       result.status === "ACCEPTED" ? "ACCEPTED" :
@@ -129,7 +118,6 @@ export async function executeAction(
     execution.finishedAt = finishedAt;
     execution.responseReference = result.responseReference;
     execution.responseHash = result.responseHash;
-
     await tx.saveExecution(execution);
 
     const event: Event = {
@@ -142,7 +130,7 @@ export async function executeAction(
       recordedAt: finishedAt,
       correlationId: action.correlationId,
       causationId: started.id,
-      truthState: result.status === "COMPLETED" ? "OBSERVED" : "DECLARED",
+      truthState: result.status === "COMPLETED" ? "OBSERVED" : "UNKNOWN",
       sourceType: "RUNTIME_ADAPTER",
       sourceReference: result.responseReference,
       payload: result.eventPayload ?? { status: result.status },
@@ -160,11 +148,11 @@ export async function executeAction(
       });
     }
 
-    const terminal = result.status === "COMPLETED" || result.status === "FAILED";
-    action.state = result.status === "COMPLETED" ? "SUCCEEDED" :
+    action.state =
+      result.status === "COMPLETED" ? "SUCCEEDED" :
       result.status === "FAILED" ? "FAILED" : "UNKNOWN";
     action.updatedAt = finishedAt;
-    if (terminal) action.completedAt = finishedAt;
+    if (result.status === "COMPLETED" || result.status === "FAILED") action.completedAt = finishedAt;
     await tx.saveAction(action);
 
     const outcome: ActionOutcome = {
@@ -184,10 +172,4 @@ export async function executeAction(
     await tx.saveOutcome(outcome);
     return outcome;
   });
-}
-
-async function readExistingOutcome(store: ActionRuntimeStore, actionId: string): Promise<ActionOutcome | null> {
-  // Implementations should resolve the unique persisted outcome by action_id.
-  // Kept explicit in the contract so replay never re-executes a consequential operation.
-  return null;
 }
