@@ -11,12 +11,13 @@ export interface ActionRuntimeStore {
   transaction<T>(work: (tx: ActionRuntimeStore) => Promise<T>): Promise<T>;
   getActionForUpdate(actionId: string): Promise<Action | null>;
   getOutcome(actionId: string): Promise<ActionOutcome | null>;
-  markExecuting(action: Action, execution: ActionExecution): Promise<void>;
+  claimExecution(action: Action, execution: ActionExecution): Promise<void>;
   appendEvent(event: Event): Promise<void>;
   appendEvidence(evidence: Evidence): Promise<void>;
   saveExecution(execution: ActionExecution): Promise<void>;
   saveAction(action: Action): Promise<void>;
   saveOutcome(outcome: ActionOutcome): Promise<void>;
+  findIdempotentAction(actionId: string, idempotencyKey: string): Promise<Action | null>;
 }
 
 export interface ActionRuntimeDependencies {
@@ -38,30 +39,40 @@ export class ActionRuntimeError extends Error {
       | "NOT_FOUND" | "IDEMPOTENCY_CONFLICT" | "AUTHORIZATION_DENIED"
       | "AUTHORIZATION_UNAVAILABLE" | "EXPIRED" | "INVALID_STATE",
     message: string,
-  ) {
-    super(message);
-  }
+  ) { super(message); }
 }
 
+/**
+ * Production boundary:
+ * 1) short transaction claims the single execution slot;
+ * 2) authorization is revalidated inside that boundary;
+ * 3) the external adapter runs OUTSIDE the DB transaction;
+ * 4) a second short transaction durably records execution, events, evidence and outcome.
+ *
+ * This avoids holding database locks across slow provider/controller calls while
+ * still preventing concurrent consequential execution.
+ */
 export async function executeAction(
   deps: ActionRuntimeDependencies,
   command: ExecuteActionCommand,
 ): Promise<ActionOutcome> {
-  return deps.store.transaction(async (tx) => {
+  const claimed = await deps.store.transaction(async (tx) => {
     const action = await tx.getActionForUpdate(command.actionId);
     if (!action) throw new ActionRuntimeError("NOT_FOUND", "Action does not exist.");
-
     if (action.idempotencyKey !== command.idempotencyKey) {
       throw new ActionRuntimeError("IDEMPOTENCY_CONFLICT", "Idempotency key does not match the action.");
     }
 
     const existingOutcome = await tx.getOutcome(action.id);
-    if (existingOutcome && ["SUCCEEDED", "FAILED", "CANCELLED", "EXPIRED", "REVOKED"].includes(action.state)) {
-      return existingOutcome;
+    if (existingOutcome && ["SUCCEEDED","FAILED","CANCELLED","EXPIRED","REVOKED"].includes(action.state)) {
+      return { action, execution: null as ActionExecution | null, outcome: existingOutcome };
+    }
+    if (action.state === "EXECUTING") {
+      throw new ActionRuntimeError("INVALID_STATE", "Action is already executing.");
     }
 
     const now = deps.now();
-    if (action.executionDeadline && now > action.executionDeadline) {
+    if (action.executionDeadline && new Date(now).getTime() > new Date(action.executionDeadline).getTime()) {
       action.state = "EXPIRED";
       action.updatedAt = now;
       await tx.saveAction(action);
@@ -90,63 +101,98 @@ export async function executeAction(
       executionState: "STARTED",
       startedAt: now,
     };
-    await tx.markExecuting(action, execution);
 
-    const started: Event = {
-      id: deps.ids.event(),
-      actionId: action.id,
-      executionId: execution.id,
-      eventType: "ACTION_EXECUTION_STARTED",
-      principalId: action.principalId,
-      occurredAt: now,
-      recordedAt: now,
-      correlationId: action.correlationId,
-      causationId: action.causationId,
-      truthState: "DECLARED",
-      sourceType: "LEGAKEYS_RUNTIME",
-      payload: { actionId: action.id, attempt: execution.attemptNumber },
-    };
+    await tx.claimExecution(action, execution);
+    return { action, execution, outcome: null as ActionOutcome | null };
+  });
+
+  if (claimed.outcome) return claimed.outcome;
+  if (!claimed.execution) throw new ActionRuntimeError("INVALID_STATE", "Execution slot was not created.");
+
+  const { action, execution } = claimed;
+
+  const started: Event = {
+    id: deps.ids.event(),
+    actionId: action.id,
+    executionId: execution.id,
+    eventType: "ACTION_EXECUTION_STARTED",
+    principalId: action.principalId,
+    occurredAt: execution.startedAt,
+    recordedAt: deps.now(),
+    correlationId: action.correlationId,
+    causationId: action.causationId,
+    truthState: "OBSERVED",
+    sourceType: "LEGAKEYS_RUNTIME",
+    payload: { actionId: action.id, attempt: execution.attemptNumber },
+    payloadHash: action.id,
+  };
+
+  await deps.store.transaction(async (tx) => {
     await tx.appendEvent(started);
+  });
 
-    const result = await deps.adapter.execute(action, execution);
-    const finishedAt = deps.now();
+  let result: Awaited<ReturnType<RuntimeAdapter["execute"]>>;
+  try {
+    result = await deps.adapter.execute(action, execution);
+  } catch {
+    result = { status: "UNKNOWN" };
+  }
 
-    execution.executionState =
-      result.status === "COMPLETED" ? "COMPLETED" :
-      result.status === "ACCEPTED" ? "ACCEPTED" :
-      result.status === "FAILED" ? "FAILED" : "UNKNOWN";
-    execution.finishedAt = finishedAt;
-    execution.responseReference = result.responseReference;
-    execution.responseHash = result.responseHash;
+  const finishedAt = deps.now();
+  const executionState: ActionExecution["executionState"] =
+    result.status === "COMPLETED" ? "COMPLETED" :
+    result.status === "ACCEPTED" ? "ACCEPTED" :
+    result.status === "FAILED" ? "FAILED" : "UNKNOWN";
+
+  execution.executionState = executionState;
+  execution.finishedAt = finishedAt;
+  execution.responseReference = result.responseReference;
+  execution.responseHash = result.responseHash;
+
+  const event: Event = {
+    id: deps.ids.event(),
+    actionId: action.id,
+    executionId: execution.id,
+    eventType: "ACTION_EXECUTION_RESULT",
+    principalId: action.principalId,
+    occurredAt: finishedAt,
+    recordedAt: finishedAt,
+    correlationId: action.correlationId,
+    causationId: started.id,
+    truthState: result.status === "COMPLETED" ? "OBSERVED" : "UNKNOWN",
+    sourceType: "RUNTIME_ADAPTER",
+    sourceReference: result.responseReference,
+    payload: result.eventPayload ?? { status: result.status },
+    payloadHash: result.responseHash,
+  };
+
+  const evidence: Evidence[] = (result.evidence ?? []).map((item) => ({
+    ...item,
+    id: deps.ids.evidence(),
+    actionId: action.id,
+    eventId: event.id,
+    receivedAt: finishedAt,
+  }));
+
+  const outcome: ActionOutcome = {
+    id: deps.ids.outcome(),
+    actionId: action.id,
+    requestedResult: { actionType: action.actionType, targetId: action.targetId },
+    observedResult: { adapterStatus: result.status, responseReference: result.responseReference },
+    normalizedResult: { status: result.status },
+    state: result.status === "COMPLETED" ? "COMPLETED" :
+      result.status === "FAILED" ? "FAILED" : "UNKNOWN",
+    truthState: result.status === "COMPLETED" ? "OBSERVED" : "UNKNOWN",
+    evidenceSufficient: result.status === "COMPLETED" && (evidence.length > 0),
+    reconciliationState: result.status === "UNKNOWN" ? "PENDING" : "NOT_REQUIRED",
+    createdAt: finishedAt,
+    updatedAt: finishedAt,
+  };
+
+  await deps.store.transaction(async (tx) => {
     await tx.saveExecution(execution);
-
-    const event: Event = {
-      id: deps.ids.event(),
-      actionId: action.id,
-      executionId: execution.id,
-      eventType: "ACTION_EXECUTION_RESULT",
-      principalId: action.principalId,
-      occurredAt: finishedAt,
-      recordedAt: finishedAt,
-      correlationId: action.correlationId,
-      causationId: started.id,
-      truthState: result.status === "COMPLETED" ? "OBSERVED" : "UNKNOWN",
-      sourceType: "RUNTIME_ADAPTER",
-      sourceReference: result.responseReference,
-      payload: result.eventPayload ?? { status: result.status },
-      payloadHash: result.responseHash,
-    };
     await tx.appendEvent(event);
-
-    for (const item of result.evidence ?? []) {
-      await tx.appendEvidence({
-        ...item,
-        id: deps.ids.evidence(),
-        actionId: action.id,
-        eventId: event.id,
-        receivedAt: finishedAt,
-      });
-    }
+    for (const item of evidence) await tx.appendEvidence(item);
 
     action.state =
       result.status === "COMPLETED" ? "SUCCEEDED" :
@@ -154,22 +200,8 @@ export async function executeAction(
     action.updatedAt = finishedAt;
     if (result.status === "COMPLETED" || result.status === "FAILED") action.completedAt = finishedAt;
     await tx.saveAction(action);
-
-    const outcome: ActionOutcome = {
-      id: deps.ids.outcome(),
-      actionId: action.id,
-      requestedResult: { actionType: action.actionType, targetId: action.targetId },
-      observedResult: { adapterStatus: result.status, responseReference: result.responseReference },
-      normalizedResult: { status: action.state },
-      state: result.status === "COMPLETED" ? "COMPLETED" :
-        result.status === "FAILED" ? "FAILED" : "UNKNOWN",
-      truthState: result.status === "COMPLETED" ? "OBSERVED" : "UNKNOWN",
-      evidenceSufficient: result.status === "COMPLETED" && (result.evidence?.length ?? 0) > 0,
-      reconciliationState: result.status === "UNKNOWN" ? "PENDING" : "NOT_REQUIRED",
-      createdAt: finishedAt,
-      updatedAt: finishedAt,
-    };
     await tx.saveOutcome(outcome);
-    return outcome;
   });
+
+  return outcome;
 }
