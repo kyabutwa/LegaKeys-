@@ -46,11 +46,15 @@ CREATE TABLE IF NOT EXISTS legakeys.action_executions (
 
 CREATE TABLE IF NOT EXISTS legakeys.events (
   id UUID PRIMARY KEY,
+  event_source TEXT NOT NULL,
+  event_version TEXT NOT NULL,
+  event_type TEXT NOT NULL,
   action_id UUID REFERENCES legakeys.actions(id),
   execution_id UUID REFERENCES legakeys.action_executions(id),
-  event_type TEXT NOT NULL,
   actor_id UUID,
   principal_id UUID,
+  subject_type TEXT,
+  subject_id UUID,
   occurred_at TIMESTAMPTZ NOT NULL,
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   sequence BIGINT,
@@ -61,12 +65,38 @@ CREATE TABLE IF NOT EXISTS legakeys.events (
   source_reference TEXT,
   payload JSONB NOT NULL DEFAULT '{}'::jsonb,
   payload_hash TEXT,
+  previous_event_hash TEXT,
   immutable_marker BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE (event_source, id),
   UNIQUE (action_id, sequence)
 );
 
 CREATE INDEX IF NOT EXISTS events_correlation_idx ON legakeys.events(correlation_id);
 CREATE INDEX IF NOT EXISTS events_action_time_idx ON legakeys.events(action_id, occurred_at);
+
+CREATE TABLE IF NOT EXISTS legakeys.event_outbox (
+  id UUID PRIMARY KEY,
+  event_id UUID NOT NULL REFERENCES legakeys.events(id),
+  destination TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('PENDING','PUBLISHED','FAILED','QUARANTINED')),
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  available_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  published_at TIMESTAMPTZ,
+  last_error TEXT,
+  UNIQUE (event_id, destination)
+);
+
+CREATE TABLE IF NOT EXISTS legakeys.event_consumptions (
+  id UUID PRIMARY KEY,
+  consumer_name TEXT NOT NULL,
+  event_source TEXT NOT NULL,
+  event_id UUID NOT NULL,
+  state TEXT NOT NULL CHECK (state IN ('RECEIVED','PROCESSED','FAILED','QUARANTINED')),
+  processed_at TIMESTAMPTZ,
+  error_detail TEXT,
+  UNIQUE (consumer_name, event_source, event_id)
+);
 
 CREATE TABLE IF NOT EXISTS legakeys.evidence (
   id UUID PRIMARY KEY,
@@ -103,5 +133,22 @@ CREATE TABLE IF NOT EXISTS legakeys.action_outcomes (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE INDEX IF NOT EXISTS event_outbox_pending_idx ON legakeys.event_outbox(state, available_at);
+CREATE INDEX IF NOT EXISTS event_consumptions_event_idx ON legakeys.event_consumptions(event_source, event_id);
+
+-- Append-only event enforcement.
+CREATE OR REPLACE FUNCTION legakeys.reject_event_mutation()
+RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'LEGAKEYS_EVENT_IMMUTABLE';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS events_no_update ON legakeys.events;
+CREATE TRIGGER events_no_update
+BEFORE UPDATE OR DELETE ON legakeys.events
+FOR EACH ROW EXECUTE FUNCTION legakeys.reject_event_mutation();
+
 -- Application/runtime enforcement remains mandatory for authorization recheck,
--- immutable event APIs, protected evidence, idempotent execution and completion proof.
+-- protected evidence, idempotent execution and completion proof.
+-- NO AUTHORIZATION -> NO CONSEQUENTIAL ACTION.
