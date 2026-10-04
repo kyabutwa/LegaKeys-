@@ -48,8 +48,31 @@ async function api(request: Request, env: Env): Promise<Response> {
   if (url.pathname === "/api/health") {
     try {
       const rows = await query(env, "select current_database() as database, current_schema() as schema, now() as server_time, exists (select 1 from information_schema.schemata where schema_name = 'legakeys') as canonical_schema_present, exists (select 1 from legakeys.runtime_contract where contract_id = 1 and canonical_schema = 'legakeys' and legacy_runtime_allowed = false) as canonical_contract_valid");
-      const ready = Boolean(rows[0]?.canonical_schema_present && rows[0]?.canonical_contract_valid);
-      return cors(json({ ok: ready, state: ready ? "CONNECTED" : "CANONICAL_MIGRATION_REQUIRED", transport: "cloudflare-hyperdrive", ...rows[0] }), request);
+      const requiredTables = [
+        "runtime_contract", "entities", "identities", "persons", "accounts", "credentials", "sessions",
+        "participations", "participants", "places", "services", "service_versions", "service_offerings",
+        "service_capabilities", "service_requests", "service_executions", "service_outcomes",
+        "actions", "action_executions", "events", "evidence", "workspaces", "genesis_runs",
+        "digital_twins"
+      ];
+      const tableRows = await query(env, "select table_name from information_schema.tables where table_schema = 'legakeys' and table_name = any($1::text[])", [requiredTables]);
+      const presentTables = tableRows.map((row) => String(row.table_name));
+      const missingTables = requiredTables.filter((table) => !presentTables.includes(table));
+      const ready = Boolean(rows[0]?.canonical_schema_present && rows[0]?.canonical_contract_valid && missingTables.length === 0);
+      const transport = env.HYPERDRIVE?.connectionString ? "cloudflare-hyperdrive" : env.DATABASE_URL ? "cloudflare-database-url" : "unconfigured";
+      return cors(json({
+        ok: ready,
+        state: ready ? "CONNECTED" : rows[0]?.canonical_contract_valid ? "CANONICAL_SCHEMA_INCOMPLETE" : "CANONICAL_MIGRATION_REQUIRED",
+        transport,
+        database: rows[0]?.database,
+        schema: rows[0]?.schema,
+        server_time: rows[0]?.server_time,
+        canonical_schema_present: Boolean(rows[0]?.canonical_schema_present),
+        canonical_contract_valid: Boolean(rows[0]?.canonical_contract_valid),
+        required_table_count: requiredTables.length,
+        present_table_count: presentTables.length,
+        missing_tables: missingTables
+      }), request);
     } catch (e) {
       const code = e instanceof Error && "code" in e ? String((e as Error & {code?: string}).code) : "DATABASE_ERROR";
       return cors(json({ ok: false, state: code === "DATABASE_NOT_CONFIGURED" ? "NOT_CONFIGURED" : "UNAVAILABLE", code }, code === "DATABASE_NOT_CONFIGURED" ? 503 : 502), request);
