@@ -20,6 +20,7 @@ schema_files=(
   implementation/beatvisitor/schema.sql
   implementation/services/schema.sql
   implementation/action-event-evidence/schema.sql
+  implementation/core-execution/schema.sql
   implementation/genesis/schema.sql
   implementation/digital-twin/schema.sql
   implementation/workspaces/schema.sql
@@ -33,6 +34,11 @@ for file in "${schema_files[@]}"; do
 done
 
 echo "== Verifying canonical LegaKeys contract =="
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc   "select product_name || '|' || contract_version || '|' || canonical_schema || '|' || legacy_runtime_allowed || '|' || consequential_writes_enabled from legakeys.runtime_contract where contract_id=1"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
+  "select product_name || '|' || contract_version || '|' || canonical_schema || '|' || legacy_runtime_allowed || '|' || consequential_writes_enabled from legakeys.runtime_contract where contract_id=1"
+
+echo "== Verifying Core Execution gate =="
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
+  "select count(*) from information_schema.tables where table_schema='legakeys' and table_name in ('authorization_decisions','actions','action_executions','events','evidence')"
 
 echo "== Canonical LegaKeys schema applied successfully =="

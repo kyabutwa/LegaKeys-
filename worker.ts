@@ -52,7 +52,7 @@ async function api(request: Request, env: Env): Promise<Response> {
         "runtime_contract", "entities", "identities", "persons", "accounts", "credentials", "sessions",
         "participations", "participants", "places", "services", "service_versions", "service_offerings",
         "service_capabilities", "service_requests", "service_executions", "service_outcomes",
-        "actions", "action_executions", "events", "evidence", "workspaces", "genesis_runs",
+        "actions", "action_executions", "authorization_decisions", "events", "evidence", "workspaces", "genesis_runs",
         "digital_twins"
       ];
       if (!rows[0]?.canonical_schema_present || !rows[0]?.runtime_contract_table_present) {
@@ -147,6 +147,44 @@ async function api(request: Request, env: Env): Promise<Response> {
       const linkage = linkageChecks.map(([name, table, requiredColumns]) => ({ name, state: requiredColumns.every(column => columns.has(`${table}.${column}`)) ? "VERIFIED" : "INCOMPLETE", table, required_columns: requiredColumns }));
       const ready = expected.every(x => present.has(x.table)) && linkage.every(x => x.state === "VERIFIED");
       return cors(json({ ok: ready, state: ready ? "VERIFIED" : "INCOMPLETE", domain_count: Object.keys(domains).length, matrix, linkage }), request);
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/core-execution") {
+      const required = [
+        "authorization_decisions",
+        "actions",
+        "action_executions",
+        "events",
+        "event_outbox",
+        "event_consumptions",
+        "evidence",
+        "action_outcomes"
+      ];
+      const tableRows = await query(env, "select table_name from information_schema.tables where table_schema='legakeys' and table_name = any($1::text[])", [required]);
+      const present = new Set(tableRows.map(row => String(row.table_name)));
+      const contractRows = await query(env, "select consequential_writes_enabled, legacy_runtime_allowed from legakeys.runtime_contract where contract_id=1");
+      const triggerRows = await query(env, "select tg.tgname as trigger_name from pg_trigger tg join pg_class c on c.oid=tg.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='legakeys' and c.relname='action_executions' and not tg.tgisinternal");
+      const missing = required.filter(table => !present.has(table));
+      const contract = contractRows[0] ?? {};
+      const executionGatePresent = triggerRows.some(row => String(row.trigger_name) === "action_execution_authorization_gate");
+      const ready = missing.length === 0 && executionGatePresent && contract.legacy_runtime_allowed === false;
+      return cors(json({
+        ok: ready,
+        state: ready ? "VERIFIED" : "INCOMPLETE",
+        consequential_writes_enabled: Boolean(contract.consequential_writes_enabled),
+        legacy_runtime_allowed: Boolean(contract.legacy_runtime_allowed),
+        authorization_gate: executionGatePresent ? "VERIFIED" : "MISSING",
+        required_table_count: required.length,
+        present_table_count: required.length - missing.length,
+        missing_tables: missing,
+        invariants: [
+          "INTENT -> PROPOSAL -> AUTHORIZATION -> ACTION -> EVENT -> EVIDENCE -> OUTCOME",
+          "NO AUTHORIZATION -> NO CONSEQUENTIAL ACTION",
+          "AUTHENTICATION != AUTHORIZATION",
+          "CAPABILITY != AUTHORIZATION",
+          "DIGITAL TWIN != AUTHORITY"
+        ]
+      }), request);
     }
 
     if (request.method === "GET" && url.pathname === "/api/me") {
