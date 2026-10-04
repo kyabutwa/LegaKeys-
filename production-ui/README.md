@@ -33,3 +33,5 @@ UI intent → context → capability → authorization → action → event → 
 ## Current scope
 
 This commit establishes the executable UI foundation and interaction model. Live Neon bindings, production authentication/session wiring, provider adapters, authorization execution and deployment verification remain separate integration gates.
+
+CI build gate is enabled for the production UI surface.
