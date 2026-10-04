@@ -48,7 +48,8 @@ Run from a controlled environment with the existing Neon project connection:
 8. `implementation/beatvisitor/schema.sql`
 9. `implementation/services/schema.sql`
 10. `implementation/action-event-evidence/schema.sql`
-11. `implementation/genesis/schema.sql`
+11. `implementation/action-event-evidence/integration.sql`
+12. `implementation/genesis/schema.sql`
 12. `implementation/digital-twin/schema.sql`
 13. `implementation/workspaces/schema.sql`
 14. `implementation/world-intelligence/schema.sql`
