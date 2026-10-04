@@ -138,7 +138,7 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  IF NEW.execution_state IN ('STARTED','ACCEPTED','COMPLETED') THEN
+  IF NEW.execution_state IN ('STARTED','ACCEPTED') THEN
     PERFORM legakeys.assert_consequential_execution(NEW.action_id);
   END IF;
   RETURN NEW;
@@ -163,10 +163,31 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION legakeys.guard_execution_attempt_mutation()
+RETURNS TRIGGER LANGUAGE plpgsql AS $
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'LEGAKEYS_EXECUTION_IMMUTABLE';
+  END IF;
+  IF NEW.action_id <> OLD.action_id OR NEW.attempt_number <> OLD.attempt_number OR NEW.started_at <> OLD.started_at THEN
+    RAISE EXCEPTION 'LEGAKEYS_EXECUTION_IDENTITY_IMMUTABLE';
+  END IF;
+  IF OLD.execution_state IN ('COMPLETED','FAILED','UNKNOWN','CANCELLED','TIMED_OUT') AND NEW.execution_state <> OLD.execution_state THEN
+    RAISE EXCEPTION 'LEGAKEYS_EXECUTION_TERMINAL_STATE_IMMUTABLE';
+  END IF;
+  IF OLD.execution_state = 'STARTED' AND NEW.execution_state NOT IN ('STARTED','ACCEPTED','FAILED','UNKNOWN','CANCELLED','TIMED_OUT') THEN
+    RAISE EXCEPTION 'LEGAKEYS_EXECUTION_INVALID_TRANSITION';
+  END IF;
+  IF OLD.execution_state = 'ACCEPTED' AND NEW.execution_state NOT IN ('ACCEPTED','COMPLETED','FAILED','UNKNOWN','CANCELLED','TIMED_OUT') THEN
+    RAISE EXCEPTION 'LEGAKEYS_EXECUTION_INVALID_TRANSITION';
+  END IF;
+  RETURN NEW;
+END;
+$;
+
 DROP TRIGGER IF EXISTS action_executions_no_update ON legakeys.action_executions;
-CREATE TRIGGER action_executions_no_update
+CREATE TRIGGER action_executions_mutation_guard
 BEFORE UPDATE OR DELETE ON legakeys.action_executions
-FOR EACH ROW
-EXECUTE FUNCTION legakeys.reject_execution_mutation();
+FOR EACH ROW EXECUTE FUNCTION legakeys.guard_execution_attempt_mutation();
 
 COMMIT;
