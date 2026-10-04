@@ -20,11 +20,27 @@ export interface ActionExecution {
 }
 
 export interface Event {
-  id: UUID; actionId?: UUID; executionId?: UUID; eventType: string;
-  actorId?: UUID; principalId?: UUID; occurredAt: string; recordedAt: string;
-  sequence?: number; correlationId: UUID; causationId?: UUID; truthState: TruthState;
-  sourceType: string; sourceReference?: string; payload: Record<string, unknown>;
+  id: UUID;
+  eventSource: string;
+  eventVersion: string;
+  eventType: string;
+  actionId?: UUID;
+  executionId?: UUID;
+  actorId?: UUID;
+  principalId?: UUID;
+  subjectType?: string;
+  subjectId?: UUID;
+  occurredAt: string;
+  recordedAt: string;
+  sequence?: number;
+  correlationId: UUID;
+  causationId?: UUID;
+  truthState: TruthState;
+  sourceType: string;
+  sourceReference?: string;
+  payload: Record<string, unknown>;
   payloadHash?: string;
+  previousEventHash?: string;
 }
 
 export interface Evidence {
