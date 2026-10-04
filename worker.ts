@@ -164,21 +164,32 @@ async function api(request: Request, env: Env): Promise<Response> {
       const present = new Set(tableRows.map(row => String(row.table_name)));
       const contractRows = await query(env, "select consequential_writes_enabled, legacy_runtime_allowed from legakeys.runtime_contract where contract_id=1");
       const triggerRows = await query(env, "select tg.tgname as trigger_name from pg_trigger tg join pg_class c on c.oid=tg.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='legakeys' and c.relname='action_executions' and not tg.tgisinternal");
+      const integrationRows = await query(env, "select p.proname as function_name from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='legakeys' and p.proname in ('record_execution_event','next_action_event_sequence')");
+      const eventTriggerRows = await query(env, "select tg.tgname as trigger_name from pg_trigger tg join pg_class c on c.oid=tg.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='legakeys' and c.relname='events' and tg.tgisinternal = false");
+      const evidenceRows = await query(env, "select column_name from information_schema.columns where table_schema='legakeys' and table_name='evidence' and column_name = any($1::text[])", [["action_id","event_id","content_hash","provenance","integrity"]]);
       const missing = required.filter(table => !present.has(table));
       const contract = contractRows[0] ?? {};
       const executionGatePresent = triggerRows.some(row => String(row.trigger_name) === "action_execution_authorization_gate");
+      const eventEvidenceIntegrationPresent = integrationRows.some(row => String(row.function_name) === "record_execution_event") &&
+        integrationRows.some(row => String(row.function_name) === "next_action_event_sequence") &&
+        triggerRows.some(row => String(row.trigger_name) === "action_execution_event_evidence_integration");
+      const evidenceLinkagePresent = ["action_id","event_id","content_hash","provenance","integrity"].every(column =>
+        evidenceRows.some(row => String(row.column_name) === column)
+      );
       const invariantChecks = {
         legacy_runtime_disabled: contract.legacy_runtime_allowed === false,
         consequential_writes_disabled: contract.consequential_writes_enabled === false,
         authorization_gate_present: executionGatePresent
       };
-      const ready = missing.length === 0 && Object.values(invariantChecks).every(Boolean);
+      const ready = missing.length === 0 && Object.values(invariantChecks).every(Boolean) && eventEvidenceIntegrationPresent && evidenceLinkagePresent;
       return cors(json({
         ok: ready,
         state: ready ? "VERIFIED" : "INCOMPLETE",
         consequential_writes_enabled: Boolean(contract.consequential_writes_enabled),
         legacy_runtime_allowed: Boolean(contract.legacy_runtime_allowed),
         authorization_gate: executionGatePresent ? "VERIFIED" : "MISSING",
+        event_evidence_integration: eventEvidenceIntegrationPresent ? "VERIFIED" : "MISSING",
+        evidence_linkage: evidenceLinkagePresent ? "VERIFIED" : "INCOMPLETE",
         invariant_checks: invariantChecks,
         required_table_count: required.length,
         present_table_count: required.length - missing.length,
