@@ -12,7 +12,8 @@ const checks = [
   ["/api/places", (body) => body?.ok === true && body?.state === "VERIFIED" && Array.isArray(body?.data)],
   ["/api/activity", (body) => body?.ok === true && body?.state === "VERIFIED" && Array.isArray(body?.data)],
   ["/api/workspaces", (body) => body?.ok === true && body?.state === "VERIFIED" && Array.isArray(body?.data)],
-  ["/api/identity", (body) => body?.ok === true && body?.state === "VERIFIED" && Array.isArray(body?.data)]
+  ["/api/identity", (body) => body?.ok === true && body?.state === "VERIFIED" && Array.isArray(body?.data)],
+  ["/api/core-domains", (body) => body?.ok === true && body?.state === "VERIFIED" && body?.domain_count === 5]
 ];
 
 let failed = false;
