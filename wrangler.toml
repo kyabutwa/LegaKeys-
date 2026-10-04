@@ -5,3 +5,10 @@ compatibility_date = "2026-10-04"
 [assets]
 directory = "./dist"
 binding = "ASSETS"
+
+# After creating Neon, create a Cloudflare Hyperdrive configuration
+# and add its returned ID here:
+#
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "<NEON_HYPERDRIVE_ID>"
