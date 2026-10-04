@@ -80,13 +80,13 @@ async function api(request: Request, env: Env): Promise<Response> {
       const transport = env.HYPERDRIVE?.connectionString ? "cloudflare-hyperdrive" : env.DATABASE_URL ? "cloudflare-database-url" : "unconfigured";
       return cors(json({
         ok: ready,
-        state: ready ? "CONNECTED" : rows[0]?.canonical_contract_valid ? "CANONICAL_SCHEMA_INCOMPLETE" : "CANONICAL_MIGRATION_REQUIRED",
+        state: ready ? "CONNECTED" : canonicalContractValid ? "CANONICAL_SCHEMA_INCOMPLETE" : "CANONICAL_MIGRATION_REQUIRED",
         transport,
         database: rows[0]?.database,
         schema: rows[0]?.schema,
         server_time: rows[0]?.server_time,
         canonical_schema_present: Boolean(rows[0]?.canonical_schema_present),
-        canonical_contract_valid: Boolean(rows[0]?.canonical_contract_valid),
+        canonical_contract_valid: canonicalContractValid,
         required_table_count: requiredTables.length,
         present_table_count: presentTables.length,
         missing_tables: missingTables
