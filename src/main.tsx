@@ -12,7 +12,9 @@ function Status({children,green=false}:{children:React.ReactNode;green?:boolean}
 function SectionPage({children}:{children:React.ReactNode}){return <section className="page-section">{children}</section>}
 
 function App(){
- const[section,setSection]=useState<Section>("Home"),[menu,setMenu]=useState(false),[more,setMore]=useState(false),[search,setSearch]=useState(false),[assistant,setAssistant]=useState(false),[identity,setIdentity]=useState(false),[context,setContext]=useState(false);\n const[liveServices,setLiveServices]=useState<any[]>([]),[dbState,setDbState]=useState("UNKNOWN");\n useEffect(()=>{fetch("/api/health",{credentials:"include"}).then(r=>r.json()).then(x=>setDbState(x.state??"UNKNOWN")).catch(()=>setDbState("UNAVAILABLE")); fetch("/api/services",{credentials:"include"}).then(r=>r.ok?r.json():null).then(x=>setLiveServices(x?.data??[])).catch(()=>setLiveServices([]));},[]);
+ const[section,setSection]=useState<Section>("Home"),[menu,setMenu]=useState(false),[more,setMore]=useState(false),[search,setSearch]=useState(false),[assistant,setAssistant]=useState(false),[identity,setIdentity]=useState(false),[context,setContext]=useState(false);
+ const[liveServices,setLiveServices]=useState<any[]>([]),[dbState,setDbState]=useState("UNKNOWN");
+ useEffect(()=>{fetch("/api/health",{credentials:"include"}).then(r=>r.json()).then(x=>setDbState(x.state??"UNKNOWN")).catch(()=>setDbState("UNAVAILABLE")); fetch("/api/services",{credentials:"include"}).then(r=>r.ok?r.json():null).then(x=>setLiveServices(x?.data??[])).catch(()=>setLiveServices([]));},[]);
  const subtitle:Record<Section,string>={Home:"Your identity, places, services and decisions — in one governed ecosystem.",Places:"Understand where you belong and what is connected.",Services:"Declared capabilities, available through governed access.",Activity:"A traceable record of what happened.",Workspaces:"Operate in the context you are authorized to use.",Identity:"Your identity, participation and trust state."};
  const go=(s:Section)=>{setSection(s);setMenu(false)};
  return <div className="app">
