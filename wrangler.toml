@@ -12,3 +12,8 @@ not_found_handling = "single-page-application"
 # [[hyperdrive]]
 # binding = "HYPERDRIVE"
 # id = "<NEON_HYPERDRIVE_ID>"
+
+# Production observability: runtime exceptions and failed invocations must be diagnosable.
+[observability]
+enabled = true
+head_sampling_rate = 1
