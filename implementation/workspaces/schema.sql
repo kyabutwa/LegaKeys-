@@ -232,3 +232,21 @@ CREATE INDEX IF NOT EXISTS idx_community_plan_items_plan ON legakeys.community_p
 -- roster/workflow/planning data may be configured inside an explicit workspace scope.
 -- platform service ownership remains LegaKeys-controlled.
 -- consequential execution still requires canonical authorization and evidence.
+
+
+-- Community-scoped access inventory. LegaKeys remains the authorization and execution boundary.
+CREATE TABLE IF NOT EXISTS legakeys.community_access_points (
+  id uuid PRIMARY KEY,
+  community_entity_id uuid NOT NULL REFERENCES legakeys.community_profiles(community_entity_id),
+  access_point_id uuid NOT NULL REFERENCES legakeys.access_points(access_point_id),
+  name text NOT NULL,
+  scope text NOT NULL DEFAULT 'COMMUNITY',
+  state text NOT NULL DEFAULT 'DECLARED' CHECK (state IN ('DECLARED','ACTIVE','SUSPENDED','RETIRED')),
+  controller_provider_id text,
+  controller_reference text,
+  notes text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (community_entity_id, access_point_id)
+);
+CREATE INDEX IF NOT EXISTS idx_community_access_points_community ON legakeys.community_access_points(community_entity_id,state);
