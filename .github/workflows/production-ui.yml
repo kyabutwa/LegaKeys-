@@ -81,5 +81,11 @@ jobs:
             console.log(path, response.status, JSON.stringify(body));
             if (!response.ok || body?.ok !== true) process.exit(1);
             if (path === "/api/services" && (!Array.isArray(body.data) || body.data.length < 17)) process.exit(1);
+            if (path === "/api/health" && body?.missing_tables?.length) process.exit(1);
+            if (path === "/api/core-domains" && body?.matrix?.beataccess?.state !== "VERIFIED") process.exit(1);
           }
+          const access = await fetch(base + "/api/beataccess/overview", { headers: { accept: "application/json" } });
+          const accessBody = await access.json().catch(() => null);
+          console.log("/api/beataccess/overview", access.status, JSON.stringify(accessBody));
+          if (access.status !== 401 || accessBody?.code !== "CANONICAL_SESSION_REQUIRED") process.exit(1);
           NODE
