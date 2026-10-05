@@ -72,6 +72,26 @@ CREATE TABLE IF NOT EXISTS legakeys.authorization_reasons (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Production-drift reconciliation: older deployments may already have authorization_reasons
+-- without the decision binding introduced by the canonical contract.
+ALTER TABLE legakeys.authorization_reasons
+  ADD COLUMN IF NOT EXISTS decision_id UUID;
+
+DO $
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='authorization_reasons_decision_fk'
+      AND conrelid='legakeys.authorization_reasons'::regclass
+  ) THEN
+    ALTER TABLE legakeys.authorization_reasons
+      ADD CONSTRAINT authorization_reasons_decision_fk
+      FOREIGN KEY (decision_id)
+      REFERENCES legakeys.authorization_decisions(decision_id)
+      NOT VALID;
+  END IF;
+END $;
+
 CREATE TABLE IF NOT EXISTS legakeys.authorization_evidence (
   evidence_id UUID PRIMARY KEY,
   authorization_id UUID NOT NULL REFERENCES legakeys.authorization_requests(authorization_id),
