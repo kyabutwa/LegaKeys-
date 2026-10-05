@@ -2,6 +2,7 @@ import React,{useEffect,useState}from"react";
 import{createRoot}from"react-dom/client";
 import{Activity,ArrowUpRight,Bell,ChevronDown,CircleHelp,Clock3,Home,KeyRound,Layers3,MapPin,Menu,Search,Settings2,ShieldCheck,Sparkles,UserRound,WalletCards,Wrench,X,Building2,Users,BriefcaseBusiness,CheckCircle2,AlertCircle,Plus,Globe2,Brain,GitBranch,Zap,LockKeyhole,Compass,LogIn,UserPlus,Handshake,Moon,Sun,Palette,ChevronLeft,Car,Truck,ShoppingBag,Utensils,HeartPulse,GraduationCap,ShieldAlert,FileText,Fingerprint,ScanLine,Smartphone,Upload,Camera,Check,Clock4}from"lucide-react";
 import"./styles.css";
+// Full-platform verification marker: canonical tree foundation is the source of truth.
 
 type Section="Home"|"Places"|"Services"|"Access"|"Payments"|"Activity"|"Workspaces"|"Identity"|"Intelligence"|"World"|"Execution"|"Founder";
 const nav:[Section,React.ElementType][]= [["Home",Home],["Places",MapPin],["Services",Layers3],["Access",KeyRound],["Payments",WalletCards],["Activity",Activity]];
