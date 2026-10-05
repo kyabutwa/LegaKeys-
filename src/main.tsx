@@ -212,7 +212,11 @@ function Landing({onEnter,onAuthenticated,currentMe,onSignOut}:{onEnter:()=>void
  const[invitationConfirmationId,setInvitationConfirmationId]=useState("");
  const[authLegalName,setAuthLegalName]=useState("");
  const[authBusy,setAuthBusy]=useState(false);
- const[authError,setAuthError]=useState("");\n const[recoveryMode,setRecoveryMode]=useState(false);\n const[recoveryKey,setRecoveryKey]=useState("");\n const[recoveryPassword,setRecoveryPassword]=useState("");\n const[recoveryPasswordConfirm,setRecoveryPasswordConfirm]=useState("");
+ const[authError,setAuthError]=useState("");
+  const[recoveryMode,setRecoveryMode]=useState(false);
+  const[recoveryKey,setRecoveryKey]=useState("");
+  const[recoveryPassword,setRecoveryPassword]=useState("");
+  const[recoveryPasswordConfirm,setRecoveryPasswordConfirm]=useState("");
  const[join,setJoin]=useState(false);
  const[joinCode,setJoinCode]=useState("");
  const[pendingJoinCode,setPendingJoinCode]=useState("");
