@@ -182,7 +182,7 @@ function SectionPage({children}:{children:React.ReactNode}){return <section clas
 
 function LegaKeysSplash(){
  const[leaving,setLeaving]=useState(false);
- useEffect(()=>{const t=window.setTimeout(()=>setLeaving(true),900);return()=>window.clearTimeout(t)},[]);
+ useEffect(()=>{const t=window.setTimeout(()=>setLeaving(true),650);return()=>window.clearTimeout(t)},[]);
  return <div className={"legakeys-splash "+(leaving?"leaving":"")} role="status" aria-label="LegaKeys">
    <div className="splash-core"><div className="splash-aura"/><img src="/legakeys-logo-transparent.svg" alt="LegaKeys" className="splash-logo"/><div className="splash-welcome"><span>Bienvenue chez vous</span><span>Welcome Home</span></div></div>
  </div>
@@ -303,7 +303,7 @@ function WorkspaceCenter({mode,onMode}:{mode:"COMMUNITY_OPERATING"|"LEGAKEYS_OPE
 function App(){
  const[preview,setPreview]=useState(true);
  const[splash,setSplash]=useState(true);
- useEffect(()=>{const t=window.setTimeout(()=>setSplash(false),2600);return()=>window.clearTimeout(t)},[]);
+ useEffect(()=>{const t=window.setTimeout(()=>setSplash(false),1200);return()=>window.clearTimeout(t)},[]);
  const sectionFromLocation=():Section=>{const raw=location.hash.replace(/^#/,"") as Section;return (["Home","Places","Services","Access","Payments","Activity","Workspaces","Identity","Intelligence","World","Execution"] as Section[]).includes(raw)?raw:"Home"};
  const initialSection=sectionFromLocation();
  type Theme="dark"|"light"|"navy";
