@@ -254,7 +254,7 @@ function Landing({onEnter,onAuthenticated,currentMe,onSignOut}:{onEnter:()=>void
       <div className="entry-grid">
        <button className="entry-card" onClick={openParticipant}><span className="entry-icon"><UserRound size={22}/></span><span><b>Join as a Participant</b><small>Build your identity and enter LegaKeys as a person.</small></span><ArrowUpRight size={18}/></button>
        <button className="entry-card" onClick={()=>setJoin(true)}><span className="entry-icon"><Handshake size={22}/></span><span><b>Join a Community</b><small>Enter a community where your participation and scope are explicit.</small></span><ArrowUpRight size={18}/></button><button className="entry-card entry-card-signin" onClick={()=>currentMe?onSignOut():setAuth("login")}><span className="entry-icon"><LogIn size={22}/></span><span><b>{currentMe?"Sign out":"Sign in"}</b><small>{currentMe?"Leave your current LegaKeys session securely.":"Continue with your existing LegaKeys account."}</small></span><ArrowUpRight size={18}/></button>
-       <button className="entry-card entry-card-community" onClick={()=>{setAuthError("");setCommunityCreate(true)}}><span className="entry-icon"><Building2 size={22}/></span><span><b>Join as a Community</b><small>{currentMe?"Create a governed community space for residents, workers, providers, services, maintenance and plans.":"Sign in first, then create your governed community space."}</small></span><ArrowUpRight size={18}/></button>
+       <button className="entry-card entry-card-community" onClick={()=>{setAuthError("");setCommunityCreate(true)}}><span className="entry-icon"><Building2 size={22}/></span><span><b>Create a Community</b><small>Create an independent community identity and operating space without becoming a participant.</small></span><ArrowUpRight size={18}/></button>
       </div>
       <div className="landing-note"><ShieldCheck size={15}/>Identity, membership, capability and authorization remain separate.</div>
     </div>
@@ -312,7 +312,7 @@ function App(){
  const[preview,setPreview]=useState(true);
  const[splash,setSplash]=useState(true);
  useEffect(()=>{const t=window.setTimeout(()=>setSplash(false),1200);return()=>window.clearTimeout(t)},[]);
- const sectionFromLocation=():Section=>{const raw=location.hash.replace(/^#/,"") as Section;return (["Home","Places","Services","Access","Payments","Activity","Workspaces","Identity","Intelligence","World","Execution"] as Section[]).includes(raw)?raw:"Home"};
+ const sectionFromLocation=():Section=>{const raw=location.hash.replace(/^#/,"") as Section;return (["Home","Places","Services","Access","Payments","Activity","Workspaces","Identity","Intelligence","World","Execution","Founder"] as Section[]).includes(raw)?raw:"Home"};
  const initialSection=sectionFromLocation();
  type Theme="dark"|"light"|"navy";
  const[theme,setTheme]=useState<Theme>(()=>{const saved=localStorage.getItem("legakeys-theme");return saved==="dark"||saved==="light"||saved==="navy"?saved:"navy"});
