@@ -17,6 +17,7 @@ on:
   pull_request:
     paths:
       - "src/**"
+      - "public/**"
       - "index.html"
       - "package.json"
       - "package-lock.json"
