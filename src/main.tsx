@@ -182,10 +182,27 @@ function SectionPage({children}:{children:React.ReactNode}){return <section clas
 
 function LegaKeysSplash(){
  const[leaving,setLeaving]=useState(false);
- useEffect(()=>{const t=window.setTimeout(()=>setLeaving(true),2100);return()=>window.clearTimeout(t)},[]);
+ useEffect(()=>{const t=window.setTimeout(()=>setLeaving(true),900);return()=>window.clearTimeout(t)},[]);
  return <div className={"legakeys-splash "+(leaving?"leaving":"")} role="status" aria-label="LegaKeys">
    <div className="splash-core"><div className="splash-aura"/><img src="/legakeys-logo-transparent.svg" alt="LegaKeys" className="splash-logo"/><div className="splash-welcome"><span>Bienvenue chez vous</span><span>Welcome Home</span></div></div>
  </div>
+}
+class LegaKeysRenderBoundary extends React.Component<React.PropsWithChildren, {error:string|null}>{
+ state={error:null as string|null};
+ static getDerivedStateFromError(error:unknown){return {error:error instanceof Error?error.message:"Unexpected render error"}}
+ componentDidCatch(error:unknown,info:React.ErrorInfo){console.error("LegaKeys render failure",error,info)}
+ render(){
+  if(this.state.error) return <div style={{minHeight:"100vh",background:"#07111f",color:"#f7fbff",display:"grid",placeItems:"center",padding:24,fontFamily:"system-ui,-apple-system,sans-serif"}}>
+   <div style={{width:"min(560px,100%)",padding:28,border:"1px solid rgba(255,255,255,.14)",borderRadius:22,background:"#0f1b2d",boxShadow:"0 24px 80px rgba(0,0,0,.35)"}}>
+    <div style={{color:"#58d68d",fontSize:11,fontWeight:800,letterSpacing:".14em"}}>LEG AKEYS · RENDER RECOVERY</div>
+    <h1 style={{fontSize:28,margin:"12px 0 8px"}}>The LegaKeys surface hit a rendering error.</h1>
+    <p style={{color:"#9aabba",lineHeight:1.6,margin:0}}>Your account and session are not being discarded. Reloading is safe; the rendering boundary is now explicit instead of leaving a black screen.</p>
+    <button onClick={()=>location.reload()} style={{marginTop:18,padding:"11px 16px",border:0,borderRadius:12,fontWeight:800,cursor:"pointer"}}>Reload LegaKeys</button>
+    <small style={{display:"block",marginTop:14,color:"#7f90a5",overflowWrap:"anywhere"}}>{this.state.error}</small>
+   </div>
+  </div>;
+  return this.props.children;
+ }
 }
 function Landing({onEnter,onAuthenticated,currentMe,onSignOut}:{onEnter:()=>void;onAuthenticated?:(me:any)=>void;currentMe?:any;onSignOut:()=>void}){
  const[auth,setAuth]=useState<"create"|"login"|null>(null);
@@ -449,4 +466,4 @@ function BeatAccessCenter(){
 }
 
 function DataSurface({icon,title,body,items}:{icon:React.ReactNode;title:string;body:string;items:string[]}){return <div className="data-surface"><div className="data-head"><span>{icon}</span><div><h2>{title}</h2><p>{body}</p></div></div><div className="data-items">{items.map((x,i)=><div key={x}><span>{String(i+1).padStart(2,"0")}</span><b>{x}</b><ArrowUpRight size={14}/></div>)}</div></div>}
-createRoot(document.getElementById("root")!).render(<App/>);
+createRoot(document.getElementById("root")!).render(<LegaKeysRenderBoundary><App/></LegaKeysRenderBoundary>);
