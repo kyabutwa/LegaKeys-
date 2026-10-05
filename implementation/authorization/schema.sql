@@ -35,6 +35,38 @@ CREATE TABLE IF NOT EXISTS legakeys.authorization_decisions (
   UNIQUE (authorization_id, decision_version)
 );
 
+-- Canonical reconciliation for the legacy authorization_decisions shape.
+ALTER TABLE legakeys.authorization_decisions
+  ADD COLUMN IF NOT EXISTS decision_id UUID,
+  ADD COLUMN IF NOT EXISTS decision_version INTEGER,
+  ADD COLUMN IF NOT EXISTS evaluated_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS decision_provenance TEXT;
+
+UPDATE legakeys.authorization_decisions
+SET decision_id=COALESCE(decision_id,authorization_id),
+    decision_version=COALESCE(decision_version,1),
+    evaluated_at=COALESCE(evaluated_at,decided_at,effective_from,now()),
+    decision_provenance=COALESCE(decision_provenance,provenance_reference,decision_reason)
+WHERE decision_id IS NULL OR decision_version IS NULL OR evaluated_at IS NULL OR decision_provenance IS NULL;
+
+ALTER TABLE legakeys.authorization_decisions
+  ALTER COLUMN decision_id SET NOT NULL,
+  ALTER COLUMN decision_version SET NOT NULL,
+  ALTER COLUMN evaluated_at SET NOT NULL;
+
+DO $legakeys_decision_reconcile$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname='authorization_decisions_decision_id_key'
+      AND conrelid='legakeys.authorization_decisions'::regclass
+  ) THEN
+    ALTER TABLE legakeys.authorization_decisions
+      ADD CONSTRAINT authorization_decisions_decision_id_key UNIQUE (decision_id);
+  END IF;
+END
+$legakeys_decision_reconcile$;
+
 CREATE TABLE IF NOT EXISTS legakeys.authorization_scopes (
   scope_id UUID PRIMARY KEY,
   authorization_id UUID NOT NULL REFERENCES legakeys.authorization_requests(authorization_id),
