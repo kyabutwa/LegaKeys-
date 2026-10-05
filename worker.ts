@@ -186,11 +186,77 @@ async function api(request: Request, env: Env): Promise<Response> {
       return cors(json({ok:true,state:"RECORDED",modality,biometric_data_received:false,truth:{biometric_material:"not received/stored",device_biometric:"local signal only",authorization:"unchanged"}}),request);
     }
     if(request.method==="GET"&&url.pathname==="/api/beataccess/overview"){
+      const session=await canonicalSession(env,request);
+      if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const points=await query(env,`select access_point_id,access_point_type,lifecycle_state,truth_state,operational_state,place_id,controller_provider_id,controller_reference,updated_at from legakeys.access_points order by updated_at desc limit 100`);
-      const operations=await query(env,`select operation_id,request_id,authorization_id,principal_entity_id,action_type,target_entity_id,access_point_id,access_credential_id,operation_state,execution_deadline,created_at,updated_at from legakeys.access_operations order by created_at desc limit 50`);
+      const operations=await query(env,`select operation_id,request_id,authorization_id,principal_entity_id,action_type,target_entity_id,access_point_id,access_credential_id,operation_state,execution_deadline,created_at,updated_at from legakeys.access_operations where principal_entity_id=(select entity_id from legakeys.identities where identity_id=$1) order by created_at desc limit 50`,[session.identity_id]);
       const credentials=await query(env,`select ac.access_credential_id,ac.credential_type,ac.lifecycle_state,ac.valid_from,ac.valid_to,ac.provider_reference,ac.created_at from legakeys.access_credentials ac join legakeys.identities i on i.entity_id=ac.principal_entity_id where i.identity_id=$1 order by ac.created_at desc`,[session.identity_id]);
       const counts=await query(env,`select count(*) filter(where lifecycle_state='ACTIVE') as active_points,count(*) filter(where operational_state='ONLINE') as online_points from legakeys.access_points`);
       return cors(json({ok:true,state:"VERIFIED",data:{access_points:points,operations,credentials,metrics:counts[0]??{}},truth:{authorization:"BeatAccess never creates authorization",providers:"only declared references are shown",physical_result:"command accepted is not access granted"}}),request);
+    }
+
+    if(request.method==="POST"&&url.pathname==="/api/beataccess/operations"){
+      const session=await canonicalSession(env,request);
+      if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const b=await request.json().catch(()=>null) as any;
+      const authorizationId=String(b?.authorizationId??"").trim(), accessPointId=String(b?.accessPointId??"").trim();
+      const actionType=String(b?.actionType??"OPEN_ACCESS").trim().toUpperCase(), targetEntityId=String(b?.targetEntityId??"").trim()||null;
+      const credentialId=String(b?.accessCredentialId??"").trim()||null, idempotencyKey=String(b?.idempotencyKey??"").trim();
+      if(!authorizationId||!accessPointId||!idempotencyKey)return cors(json({ok:false,state:"INVALID_INPUT",code:"BEATACCESS_OPERATION_INPUT_REQUIRED"},400),request);
+      const principalEntityId=String(session.identity_id??"");
+      const principalRows=await query(env,`select entity_id from legakeys.identities where identity_id=$1 limit 1`,[principalEntityId]);
+      if(!principalRows[0])return cors(json({ok:false,state:"DENIED",code:"IDENTITY_ENTITY_REQUIRED"},403),request);
+      const principal=String(principalRows[0].entity_id);
+      const existing=await query(env,`select operation_id,operation_state from legakeys.access_operations where request_id=$1::uuid and idempotency_key=$2 limit 1`,[authorizationId,idempotencyKey]);
+      if(existing[0])return cors(json({ok:true,state:"IDEMPOTENT_REPLAY",operation_id:existing[0].operation_id,operation_state:existing[0].operation_state}),request);
+      const auth=await query(env,`select ar.authorization_id,ar.principal_entity_id,ar.action_type,ar.target_entity_id,ad.decision,ad.decision_version,ad.policy_version,ad.effective_from,ad.expires_at,ad.evaluated_at
+        from legakeys.authorization_requests ar
+        join lateral (select * from legakeys.authorization_decisions d where d.authorization_id=ar.authorization_id order by d.decision_version desc limit 1) ad on true
+        where ar.authorization_id=$1 and ar.principal_entity_id=$2 limit 1`,[authorizationId,principal]);
+      const point=await query(env,`select access_point_id,place_id,lifecycle_state,operational_state from legakeys.access_points where access_point_id=$1 limit 1`,[accessPointId]);
+      const credential=credentialId?await query(env,`select access_credential_id,principal_entity_id,lifecycle_state,valid_from,valid_to from legakeys.access_credentials where access_credential_id=$1 limit 1`,[credentialId]):[];
+      const a=auth[0],p=point[0],c=credential[0];
+      const now=Date.now(), expiresAt=a?.expires_at?new Date(String(a.expires_at)).getTime():null;
+      const deadlineValid=!expiresAt||expiresAt>now;
+      const authValid=Boolean(a&&a.decision==="ALLOW"&&new Date(String(a.effective_from)).getTime()<=now&&deadlineValid);
+      const principalMatch=Boolean(a&&String(a.principal_entity_id)===principal);
+      const actionMatch=Boolean(a&&String(a.action_type).toUpperCase()===actionType);
+      const targetMatch=Boolean(!a?.target_entity_id||!targetEntityId||String(a.target_entity_id)===targetEntityId);
+      const pointValid=Boolean(p&&p.lifecycle_state==="ACTIVE");
+      const credentialValid=credentialId?Boolean(c&&String(c.principal_entity_id)===principal&&c.lifecycle_state==="ACTIVE"&&(!c.valid_from||new Date(String(c.valid_from)).getTime()<=now)&&(!c.valid_to||new Date(String(c.valid_to)).getTime()>now)):true;
+      const valid=Boolean(authValid&&principalMatch&&actionMatch&&targetMatch&&pointValid&&credentialValid);
+      const operationId=crypto.randomUUID(),requestId=crypto.randomUUID();
+      const state=valid?"AUTHORIZED_FOR_EXECUTION":"CANCELLED";
+      await query(env,`insert into legakeys.access_operations(operation_id,request_id,authorization_id,principal_entity_id,action_type,target_entity_id,access_point_id,access_credential_id,operation_state,execution_deadline,idempotency_key,created_at,updated_at)
+        values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now())`,[operationId,requestId,authorizationId,principal,actionType,targetEntityId,accessPointId,credentialId,state,a?.expires_at??null,idempotencyKey]);
+      await query(env,`insert into legakeys.access_validation_results(validation_id,operation_id,authorization_valid,principal_match,action_match,target_match,scope_match,credential_valid,conditions_satisfied,replay_check_passed,execution_deadline_valid,result,reason_code,authorization_decision_version,policy_version)
+        values($1,$2,$3,$4,$5,$6,$7,$8,true,true,$9,$10,$11,$12,$13)`,[crypto.randomUUID(),operationId,authValid,principalMatch,actionMatch,targetMatch,pointValid,credentialId?credentialValid:true,deadlineValid,valid?"VALID":"REJECTED",valid?null:"ACCESS_BINDING_REJECTED",a?.decision_version??null,a?.policy_version??null]);
+      return cors(json({ok:valid,state:valid?"AUTHORIZED_FOR_EXECUTION":"REJECTED",operation_id:operationId,request_id:requestId,truth:{authorization:"existing decision only",execution:"not yet attempted",physical_result:"not established"}}),valid?request:request);
+    }
+
+    if(request.method==="POST"&&url.pathname==="/api/beataccess/operations/execute"){
+      const session=await canonicalSession(env,request);
+      if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const b=await request.json().catch(()=>null) as any,operationId=String(b?.operationId??"").trim();
+      if(!operationId)return cors(json({ok:false,state:"INVALID_INPUT",code:"OPERATION_ID_REQUIRED"},400),request);
+      const rows=await query(env,`select ao.operation_id,ao.authorization_id,ao.principal_entity_id,ao.access_point_id,ao.access_credential_id,ao.operation_state,ao.execution_deadline,ap.controller_provider_id,ap.controller_reference
+        from legakeys.access_operations ao join legakeys.access_points ap on ap.access_point_id=ao.access_point_id
+        where ao.operation_id=$1 and ao.principal_entity_id=(select entity_id from legakeys.identities where identity_id=$2) limit 1`,[operationId,session.identity_id]);
+      const op=rows[0];
+      if(!op)return cors(json({ok:false,state:"NOT_FOUND",code:"ACCESS_OPERATION_NOT_FOUND"},404),request);
+      if(op.operation_state!=="AUTHORIZED_FOR_EXECUTION")return cors(json({ok:false,state:"REJECTED",code:"ACCESS_OPERATION_NOT_EXECUTABLE",operation_state:op.operation_state},409),request);
+      if(op.execution_deadline&&new Date(String(op.execution_deadline)).getTime()<=Date.now()){
+        await query(env,`update legakeys.access_operations set operation_state='EXPIRED',updated_at=now() where operation_id=$1`,[operationId]);
+        return cors(json({ok:false,state:"EXPIRED",code:"ACCESS_AUTHORIZATION_EXPIRED"},409),request);
+      }
+      const provider=String(op.controller_provider_id??"").trim(),controller=String(op.controller_reference??"").trim();
+      if(!provider||!controller){
+        await query(env,`update legakeys.access_operations set operation_state='PROVIDER_UNAVAILABLE',updated_at=now() where operation_id=$1`,[operationId]);
+        await query(env,`insert into legakeys.access_provider_results(provider_result_id,operation_id,provider_id,controller_id,provider_state,provider_code,provider_message,provenance_reference) values($1,$2,$3,$4,'UNAVAILABLE','NO_DECLARED_CONTROLLER','No verified controller/provider connection is declared for this access point.','beataccess-runtime')`,[crypto.randomUUID(),operationId,provider||"UNDECLARED",controller||null]);
+        await query(env,`insert into legakeys.access_events(access_event_id,operation_id,event_type,result_state,correlation_id) values($1,$2,'UNKNOWN','PROVIDER_UNAVAILABLE',$3)`,[crypto.randomUUID(),operationId,crypto.randomUUID()]);
+        return cors(json({ok:false,state:"PROVIDER_UNAVAILABLE",operation_id:operationId,truth:{authorization:"valid",command:"not issued",physical_result:"UNKNOWN",provider:"not declared"}}),request);
+      }
+      return cors(json({ok:false,state:"PROVIDER_ADAPTER_REQUIRED",operation_id:operationId,truth:{authorization:"valid",command:"not issued",physical_result:"UNKNOWN"},message:"A declared controller is present, but no executable provider adapter is wired into this runtime."}),501),request);
     }
     if(request.method==="POST"&&url.pathname==="/api/account/suspend"){
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);await query(env,"update legakeys.credentials set state='SUSPENDED',updated_at=now()where account_id=$1 and state='ACTIVE'",[r.account_id]);await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now()where account_id=$1 and state='ACTIVE'",[r.account_id]);await query(env,"update legakeys.accounts set state='SUSPENDED',updated_at=now()where account_id=$1",[r.account_id]);const out=cors(json({ok:true,state:"SUSPENDED"}),request),h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie("",0));return new Response(out.body,{status:out.status,headers:h});
