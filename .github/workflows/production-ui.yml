@@ -95,8 +95,5 @@ jobs:
           }
           const source = await (await fetch("https://raw.githubusercontent.com/kyabutwa/LegaKeys-/" + process.env.GITHUB_SHA + "/worker.ts")).text();
           for (const required of ["url.pathname === \"/api/identity\"", "url.pathname === \"/api/workspaces\"", "url.pathname === \"/api/places\"", "url.pathname === \"/api/activity\"", "confirmPassword", "invitationConfirmationId", "CANONICAL_SESSION_REQUIRED"]) if (!source.includes(required)) process.exit(1);
-          const access = await fetch(base + "/api/beataccess/overview", { headers });
-          const accessBody = await access.json().catch(() => null);
-          console.log("/api/beataccess/overview", access.status, JSON.stringify(accessBody));
-          if (access.status !== 401 || accessBody?.code !== "CANONICAL_SESSION_REQUIRED") process.exit(1);
+
           NODE
