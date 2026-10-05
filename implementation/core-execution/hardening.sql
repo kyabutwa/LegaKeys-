@@ -1,4 +1,5 @@
 -- LegaKeys Core Execution hardening
+-- Compatible with the canonical versioned authorization model.
 -- Safe while consequential writes remain disabled.
 
 BEGIN;
@@ -11,7 +12,10 @@ ALTER TABLE legakeys.authorization_decisions
 
 UPDATE legakeys.authorization_decisions
 SET policy_version = COALESCE(policy_version, 'legacy-1'),
-    decision_fingerprint = COALESCE(decision_fingerprint, authorization_id::text)
+    decision_fingerprint = COALESCE(
+      decision_fingerprint,
+      authorization_id::text || ':' || decision_version::text
+    )
 WHERE policy_version IS NULL OR decision_fingerprint IS NULL;
 
 ALTER TABLE legakeys.authorization_decisions
@@ -21,15 +25,12 @@ ALTER TABLE legakeys.authorization_decisions
 CREATE UNIQUE INDEX IF NOT EXISTS authorization_decision_fingerprint_uq
   ON legakeys.authorization_decisions(decision_fingerprint);
 
-CREATE INDEX IF NOT EXISTS authorization_decisions_capability_idx
-  ON legakeys.authorization_decisions(capability_id);
-
 CREATE INDEX IF NOT EXISTS authorization_decisions_effective_idx
   ON legakeys.authorization_decisions(decision, effective_from, expires_at);
 
 CREATE TABLE IF NOT EXISTS legakeys.authorization_decision_history (
   history_id UUID PRIMARY KEY,
-  authorization_id UUID NOT NULL REFERENCES legakeys.authorization_decisions(authorization_id),
+  authorization_id UUID NOT NULL REFERENCES legakeys.authorization_requests(authorization_id),
   event_type TEXT NOT NULL CHECK (event_type IN ('CREATED','SUPERSEDED','REVOKED','EXPIRED')),
   previous_decision TEXT,
   new_decision TEXT,
@@ -78,7 +79,8 @@ LANGUAGE plpgsql
 AS $func$
 DECLARE
   a RECORD;
-  z RECORD;
+  r RECORD;
+  d RECORD;
   c RECORD;
   now_ts TIMESTAMPTZ := now();
 BEGIN
@@ -87,45 +89,57 @@ BEGIN
   IF a.authorization_id IS NULL THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_REQUIRED'; END IF;
   IF a.state NOT IN ('AUTHORIZED','EXECUTING') THEN RAISE EXCEPTION 'LEGAKEYS_ACTION_NOT_EXECUTABLE'; END IF;
 
-  SELECT * INTO z FROM legakeys.runtime_contract WHERE contract_id = 1 FOR SHARE;
-  IF NOT FOUND OR z.canonical_schema <> 'legakeys' OR z.legacy_runtime_allowed THEN
+  SELECT * INTO r
+  FROM legakeys.authorization_requests
+  WHERE authorization_id = a.authorization_id
+  FOR SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_FOUND'; END IF;
+
+  SELECT * INTO d
+  FROM legakeys.authorization_decisions
+  WHERE authorization_id = r.authorization_id
+  ORDER BY decision_version DESC
+  LIMIT 1
+  FOR SHARE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_DECISION_NOT_FOUND'; END IF;
+
+  SELECT * INTO c FROM legakeys.runtime_contract WHERE contract_id = 1 FOR SHARE;
+  IF NOT FOUND OR c.canonical_schema <> 'legakeys' OR c.legacy_runtime_allowed THEN
     RAISE EXCEPTION 'LEGAKEYS_CANONICAL_RUNTIME_INVALID';
   END IF;
-  IF NOT z.consequential_writes_enabled THEN
+  IF NOT c.consequential_writes_enabled THEN
     RAISE EXCEPTION 'LEGAKEYS_CONSEQUENTIAL_WRITES_DISABLED';
   END IF;
 
-  SELECT * INTO z
-  FROM legakeys.authorization_decisions
-  WHERE authorization_id = a.authorization_id
-  FOR SHARE;
-
-  IF NOT FOUND THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_FOUND'; END IF;
-  IF z.decision <> 'APPROVED' THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_APPROVED'; END IF;
-  IF z.truth_state NOT IN ('VERIFIED','DECLARED') THEN
-    RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_TRUTH_STATE_INVALID';
+  IF r.request_state NOT IN ('DECIDED','CONSUMED') THEN
+    RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_REQUEST_NOT_DECIDED';
   END IF;
-  IF z.principal_entity_id <> a.principal_id THEN
+  IF d.decision <> 'ALLOW' THEN
+    RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_ALLOWED';
+  END IF;
+  IF r.principal_entity_id <> a.principal_id THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_PRINCIPAL_MISMATCH';
   END IF;
-  IF z.target_type <> a.target_type OR z.target_id <> a.target_id THEN
+  IF r.target_entity_id IS NOT NULL
+     AND (a.target_type <> 'ENTITY' OR r.target_entity_id <> a.target_id) THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_TARGET_MISMATCH';
   END IF;
-  IF z.action_class <> a.action_type THEN
+  IF r.action_type <> a.action_type THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_ACTION_MISMATCH';
   END IF;
-  IF z.effective_from IS NOT NULL AND now_ts < z.effective_from THEN
+  IF d.effective_from IS NOT NULL AND now_ts < d.effective_from THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_YET_EFFECTIVE';
   END IF;
-  IF z.expires_at IS NOT NULL AND now_ts >= z.expires_at THEN
+  IF d.expires_at IS NOT NULL AND now_ts >= d.expires_at THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_EXPIRED';
   END IF;
   IF a.execution_deadline IS NOT NULL AND now_ts >= a.execution_deadline THEN
     RAISE EXCEPTION 'LEGAKEYS_ACTION_EXECUTION_DEADLINE_EXPIRED';
   END IF;
 
-  IF z.capability_id IS NOT NULL THEN
-    SELECT * INTO c FROM legakeys.capabilities WHERE capability_id = z.capability_id FOR SHARE;
+  IF r.capability_id IS NOT NULL THEN
+    SELECT * INTO c FROM legakeys.capabilities
+    WHERE capability_id = r.capability_id FOR SHARE;
     IF NOT FOUND OR c.lifecycle_state <> 'ACTIVE' THEN
       RAISE EXCEPTION 'LEGAKEYS_CAPABILITY_NOT_ACTIVE';
     END IF;
@@ -145,32 +159,26 @@ LANGUAGE plpgsql
 AS $func$
 BEGIN
   IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'LEGAKEYS_EXECUTION_IMMUTABLE'; END IF;
-
   IF NEW.action_id <> OLD.action_id
      OR NEW.attempt_number <> OLD.attempt_number
      OR NEW.started_at <> OLD.started_at THEN
     RAISE EXCEPTION 'LEGAKEYS_EXECUTION_IDENTITY_IMMUTABLE';
   END IF;
-
   IF OLD.execution_state IN ('COMPLETED','FAILED','UNKNOWN','CANCELLED','TIMED_OUT')
      AND NEW.execution_state <> OLD.execution_state THEN
     RAISE EXCEPTION 'LEGAKEYS_EXECUTION_TERMINAL_STATE_IMMUTABLE';
   END IF;
-
   IF OLD.execution_state = 'STARTED'
      AND NEW.execution_state NOT IN ('STARTED','ACCEPTED','FAILED','UNKNOWN','CANCELLED','TIMED_OUT') THEN
     RAISE EXCEPTION 'LEGAKEYS_EXECUTION_INVALID_TRANSITION';
   END IF;
-
   IF OLD.execution_state = 'ACCEPTED'
      AND NEW.execution_state NOT IN ('ACCEPTED','COMPLETED','FAILED','UNKNOWN','CANCELLED','TIMED_OUT') THEN
     RAISE EXCEPTION 'LEGAKEYS_EXECUTION_INVALID_TRANSITION';
   END IF;
-
   IF NEW.execution_state = 'COMPLETED' AND NEW.finished_at IS NULL THEN
     RAISE EXCEPTION 'LEGAKEYS_EXECUTION_COMPLETION_TIME_REQUIRED';
   END IF;
-
   RETURN NEW;
 END;
 $func$;
@@ -185,6 +193,9 @@ CREATE OR REPLACE FUNCTION legakeys.guard_action_state_transition()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $func$
+DECLARE
+  r RECORD;
+  d RECORD;
 BEGIN
   IF NEW.state <> OLD.state THEN
     IF OLD.state = 'REQUESTED' AND NEW.state NOT IN ('REQUESTED','VALIDATING','CANCELLED','EXPIRED') THEN RAISE EXCEPTION 'LEGAKEYS_ACTION_INVALID_TRANSITION'; END IF;
@@ -193,27 +204,33 @@ BEGIN
     IF OLD.state = 'EXECUTING' AND NEW.state NOT IN ('EXECUTING','SUCCEEDED','FAILED','UNKNOWN','CANCELLED') THEN RAISE EXCEPTION 'LEGAKEYS_ACTION_INVALID_TRANSITION'; END IF;
     IF OLD.state IN ('SUCCEEDED','FAILED','UNKNOWN','CANCELLED','EXPIRED','REVOKED') THEN RAISE EXCEPTION 'LEGAKEYS_ACTION_TERMINAL_STATE_IMMUTABLE'; END IF;
   END IF;
+
   IF NEW.state IN ('AUTHORIZED','EXECUTING') AND NEW.authorization_id IS NULL THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_REQUIRED';
   END IF;
 
   IF NEW.state = 'AUTHORIZED' THEN
-    IF NOT EXISTS (
-      SELECT 1
-      FROM legakeys.authorization_decisions d
-      WHERE d.authorization_id = NEW.authorization_id
-        AND d.principal_entity_id = NEW.principal_id
-        AND d.target_type = NEW.target_type
-        AND d.target_id = NEW.target_id
-        AND d.action_class = NEW.action_type
-        AND d.decision = 'APPROVED'
-        AND d.truth_state IN ('VERIFIED','DECLARED')
-        AND (d.effective_from IS NULL OR now() >= d.effective_from)
-        AND (d.expires_at IS NULL OR now() < d.expires_at)
-    ) THEN
+    SELECT * INTO r FROM legakeys.authorization_requests
+    WHERE authorization_id = NEW.authorization_id;
+    IF NOT FOUND THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_FOUND'; END IF;
+
+    SELECT * INTO d FROM legakeys.authorization_decisions
+    WHERE authorization_id = NEW.authorization_id
+    ORDER BY decision_version DESC LIMIT 1;
+
+    IF NOT FOUND
+       OR r.principal_entity_id <> NEW.principal_id
+       OR r.action_type <> NEW.action_type
+       OR (r.target_entity_id IS NOT NULL AND (NEW.target_type <> 'ENTITY' OR r.target_entity_id <> NEW.target_id))
+       OR r.request_state NOT IN ('DECIDED','CONSUMED')
+       OR d.decision <> 'ALLOW'
+       OR d.effective_from IS NOT NULL AND now() < d.effective_from
+       OR d.expires_at IS NOT NULL AND now() >= d.expires_at
+    THEN
       RAISE EXCEPTION 'LEGAKEYS_ACTION_AUTHORIZATION_INVALID';
     END IF;
   END IF;
+
   RETURN NEW;
 END;
 $func$;
