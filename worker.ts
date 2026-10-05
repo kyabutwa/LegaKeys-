@@ -480,7 +480,9 @@ async function api(request: Request, env: Env): Promise<Response> {
       const identityEntityId = String(session.entity_id ?? "");
       const identityType = String(session.identity_type ?? "");
       const selectedCommunityId = String(url.searchParams.get("community_entity_id") ?? "").trim();
-      const rows = await query(env, `
+      let rows: Row[]=[];
+      try {
+        rows = await query(env, `
         select cp.community_entity_id,cp.workspace_id,cp.operator_entity_id,cp.operator_type,cp.onboarding_state,cp.plan_code,cp.plan_version,cp.plan_state,
                w.name,w.purpose,w.lifecycle,w.version,
                (select count(*) from legakeys.community_roster cr where cr.community_entity_id=cp.community_entity_id and cr.state='ACTIVE') as people_count,
@@ -500,6 +502,10 @@ async function api(request: Request, env: Env): Promise<Response> {
         )
         order by cp.updated_at desc
       `,[participantId,identityType,identityEntityId,String(session.account_id ?? ""),selectedCommunityId]);
+      } catch (e) {
+        const detail=e instanceof Error?e.message:String(e);
+        return cors(json({ok:false,state:"UNAVAILABLE",code:"DATABASE_ERROR",debug:detail.slice(0,500)},502),request);
+      }
       const communities=[];
       for(const row of rows){
         const people=await query(env,`select cr.id,cr.participant_ref,cr.relationship_type,cr.state,cr.scope_ref,cr.effective_from,cr.effective_until from legakeys.community_roster cr where cr.community_entity_id=$1 order by cr.updated_at desc limit 50`,[row.community_entity_id]);
