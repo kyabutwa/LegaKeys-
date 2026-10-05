@@ -260,7 +260,7 @@ function Landing({onEnter,onAuthenticated,currentMe,onSignOut}:{onEnter:()=>void
     </div>
    </section>
 
-   <section className="landing-rail"><div><span><KeyRound size={16}/>Identity</span><b>One participant context</b></div><div><span><MapPin size={16}/>World</span><b>Places, buildings, units & spaces</b></div><div><span><Layers3 size={16}/>Services</span><b>17 declared Beat capabilities</b></div><div><span><Brain size={16}/>Intelligence</span><b>GENESIS + CONSTANTYNA</b></div></section>
+   <section className="landing-rail"><div><span><KeyRound size={16}/>Identity</span><b>One identity, many contexts</b></div><div><span><MapPin size={16}/>World</span><b>Places, buildings, units & spaces</b></div><div><span><Layers3 size={16}/>Services</span><b>17 declared Beat capabilities</b></div><div><span><Brain size={16}/>Intelligence</span><b>GENESIS + CONSTANTYNA</b></div></section>
 
    <section className="landing-section">
     <div className="section-intro"><div><div className="eyebrow">THE LEGAK EYS OPERATING MODEL</div><h2>From everyday life to enterprise operations.</h2></div><p>People participate. Communities operate their own scope. LegaKeys provides the shared platform, services and governance boundary.</p></div>
