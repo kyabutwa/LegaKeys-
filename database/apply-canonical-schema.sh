@@ -16,6 +16,7 @@ schema_files=(
   implementation/world/schema.sql
   implementation/context/schema.sql
   implementation/capability/schema.sql
+  implementation/authorization/schema.sql
   implementation/authority/schema.sql
   implementation/beataccess/schema.sql
   implementation/beatvisitor/schema.sql
