@@ -157,14 +157,21 @@ jobs:
           DELETE FROM legakeys.persons WHERE entity_id IN (
             SELECT entity_id FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b')
           );
+          DELETE FROM legakeys.sessions WHERE account_id IN (
+            SELECT a.account_id FROM legakeys.accounts a
+            JOIN legakeys.identities i ON i.identity_id=a.identity_id
+            JOIN legakeys.entities e ON e.entity_id=i.entity_id
+            WHERE e.canonical_name LIKE '__HTTP_SMOKE_COMMUNITY_%'
+          );
+          DELETE FROM legakeys.credentials WHERE subject_reference LIKE 'http-smoke-%@invalid.legakeys';
           DELETE FROM legakeys.accounts WHERE identity_id IN (
             SELECT identity_id FROM legakeys.identities i JOIN legakeys.entities e ON e.entity_id=i.entity_id
             WHERE e.canonical_name IN (:'smoke_a', :'smoke_b')
           );
           DELETE FROM legakeys.identities WHERE entity_id IN (
-            SELECT entity_id FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b')
+            SELECT entity_id FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b') OR canonical_name LIKE '__HTTP_SMOKE_COMMUNITY_%'
           );
-          DELETE FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b');
+          DELETE FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b') OR canonical_name LIKE '__HTTP_SMOKE_COMMUNITY_%';
           COMMIT;
           SQL
           }
@@ -176,6 +183,7 @@ jobs:
           const id = process.env.SMOKE_ID;
           const a = {email:`http-smoke-${id}-a@invalid.legakeys`, password:"SmokePassword!2026-Strong", confirmPassword:"SmokePassword!2026-Strong", legalName:`__HTTP_SMOKE_A_${id}__`, displayName:"HTTP Smoke A", countryOfResidence:"KE"};
           const b = {email:`http-smoke-${id}-b@invalid.legakeys`, password:"SmokePassword!2026-Strong", confirmPassword:"SmokePassword!2026-Strong", legalName:`__HTTP_SMOKE_B_${id}__`, displayName:"HTTP Smoke B", countryOfResidence:"KE"};
+          const community = {email:`http-smoke-${id}-community@invalid.legakeys`, password:"SmokePassword!2026-Strong", confirmPassword:"SmokePassword!2026-Strong"};
           const request = async (path, init={}) => {
             const r = await fetch(base+path,{...init,headers:{"content-type":"application/json",...(init.headers||{})}});
             const text = await r.text(); let body=null; try{body=JSON.parse(text)}catch{}
@@ -197,8 +205,11 @@ jobs:
           const cookieA=await login(a);
           let m=await request("/api/me",{headers:{cookie:cookieA}});
           if(!m.r.ok||!m.body?.ok||!m.body?.data?.participant?.participant_id) throw new Error("A /api/me failed: HTTP "+m.r.status+" "+JSON.stringify(m.body));
-          let c=await request("/api/community/create",{method:"POST",headers:{cookie:cookieA},body:JSON.stringify({name:`__HTTP_SMOKE_COMMUNITY_${id}`,purpose:"HTTP runtime smoke",operatorType:"COMMUNITY",organizationName:""})});
-          if(!c.r.ok||!c.body?.ok||!c.body?.join_code) throw new Error("community create failed: HTTP "+c.r.status+" "+JSON.stringify(c.body));
+          let c=await request("/api/community/create",{method:"POST",body:JSON.stringify({name:`__HTTP_SMOKE_COMMUNITY_${id}`,purpose:"HTTP runtime smoke",operatorType:"COMMUNITY",organizationName:"",...community})});
+          if(!c.r.ok||!c.body?.ok||!c.body?.join_code) throw new Error("independent community create failed: HTTP "+c.r.status+" "+JSON.stringify(c.body));
+          const communityCookie=await login(community);
+          m=await request("/api/me",{headers:{cookie:communityCookie}});
+          if(!m.r.ok||!m.body?.ok||m.body?.data?.identity_type!=="COMMUNITY"||m.body?.data?.participant?.participant_id) throw new Error("community identity/session failed: HTTP "+m.r.status+" "+JSON.stringify(m.body));
           const joinCode=c.body.join_code;
           c=await request("/api/community/join",{method:"POST",headers:{cookie:cookieA},body:JSON.stringify({inviteCode:joinCode})});
           if(!c.r.ok||!c.body?.ok) throw new Error("same-user community join failed: HTTP "+c.r.status+" "+JSON.stringify(c.body));
