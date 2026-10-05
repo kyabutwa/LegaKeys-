@@ -479,7 +479,6 @@ async function api(request: Request, env: Env): Promise<Response> {
       const identityId = String(session.identity_id ?? "");
       const identityEntityId = String(session.entity_id ?? "");
       const identityType = String(session.identity_type ?? "");
-      const actorEntityId = String(session.entity_id ?? "");
       const selectedCommunityId = String(url.searchParams.get("community_entity_id") ?? "").trim();
       const rows = await query(env, `
         select cp.community_entity_id,cp.workspace_id,cp.operator_entity_id,cp.operator_type,cp.onboarding_state,cp.plan_code,cp.plan_version,cp.plan_state,
