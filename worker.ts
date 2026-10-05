@@ -364,6 +364,9 @@ async function api(request: Request, env: Env): Promise<Response> {
     if (request.method === "POST" && url.pathname === "/api/community/create") {
       const session = await canonicalSession(env, request);
       if (!session) return cors(json({ok:false,code:"AUTH_REQUIRED",message:"A canonical LegaKeys participant session is required."},401), request);
+      const participantId = String(session.participant_id ?? "").trim();
+      if (!participantId) return cors(json({ok:false,code:"PARTICIPANT_REQUIRED",message:"An active LegaKeys participant is required before creating a community."},409),request);
+
       const body = await request.json().catch(()=>({})) as any;
       const name = String(body?.name ?? "").trim();
       const purpose = String(body?.purpose ?? "").trim();
@@ -372,25 +375,27 @@ async function api(request: Request, env: Env): Promise<Response> {
       if (name.length < 2 || name.length > 160) return cors(json({ok:false,code:"INVALID_COMMUNITY_NAME",message:"Community name must be between 2 and 160 characters."},400),request);
       if (purpose.length < 2 || purpose.length > 500) return cors(json({ok:false,code:"INVALID_COMMUNITY_PURPOSE",message:"Community purpose must be between 2 and 500 characters."},400),request);
       if (operatorType==="ORGANIZATION" && (organizationName.length < 2 || organizationName.length > 160)) return cors(json({ok:false,code:"INVALID_ORGANIZATION_NAME",message:"Organization name must be between 2 and 160 characters."},400),request);
-      const participantId = String(session.participant_id ?? "");
+
+      const principal = await query(env, "select participant_id from legakeys.participants where participant_id=$1 and state='ACTIVE' limit 1", [participantId]);
+      if (!principal[0]) return cors(json({ok:false,code:"PARTICIPANT_REQUIRED",message:"Your participant record is not active. Complete participant onboarding before creating a community."},409),request);
+
+      const existing = await query(env, `
+        select w.id as workspace_id
+        from legakeys.workspaces w
+        join legakeys.workspace_memberships wm on wm.workspace_id=w.id
+        where w.workspace_type='COMMUNITY_OPERATING'
+          and wm.participant_ref=$1 and wm.status='ACTIVE' and lower(w.name)=lower($2)
+        limit 1
+      `, [participantId,name]);
+      if (existing[0]) return cors(json({ok:false,code:"COMMUNITY_ALREADY_EXISTS",message:"You already have a community workspace with this name."},409),request);
+
       const joinCode = `LK-${crypto.randomUUID().replace(/-/g,"").slice(0,10).toUpperCase()}`;
-      const ids = {entity:crypto.randomUUID(), identity:crypto.randomUUID(), workspace:crypto.randomUUID(), membership:crypto.randomUUID(), operator:crypto.randomUUID(), operatorIdentity:crypto.randomUUID()};
+      const ids = {entity:crypto.randomUUID(), identity:crypto.randomUUID(), workspace:crypto.randomUUID(), membership:crypto.randomUUID(), operator:crypto.randomUUID(), operatorIdentity:crypto.randomUUID(), roster:crypto.randomUUID()};
       const rows = await query(env, `
-        with principal as (
-          select p.participant_id
-          from legakeys.participants p
-          where p.participant_id=$1 and p.state='ACTIVE'
-        ), existing as (
-          select w.id as workspace_id
-          from legakeys.workspaces w
-          join legakeys.workspace_memberships wm on wm.workspace_id=w.id
-          where w.workspace_type='COMMUNITY_OPERATING'
-            and wm.participant_ref=$1 and wm.status='ACTIVE' and w.name=$2
-          limit 1
-        ), oe as (
+        with oe as (
           insert into legakeys.entities(entity_id,entity_type,canonical_name,display_name,lifecycle_state)
           select $3::uuid,'ORGANIZATION',$7,$7,'ACTIVE'
-          where $6::text='ORGANIZATION' and exists(select 1 from principal)
+          where $6::text='ORGANIZATION'
           returning entity_id
         ), oi as (
           insert into legakeys.identities(identity_id,entity_id,identity_type,state,verification_state)
@@ -398,9 +403,7 @@ async function api(request: Request, env: Env): Promise<Response> {
           from oe returning identity_id,entity_id
         ), e as (
           insert into legakeys.entities(entity_id,entity_type,canonical_name,display_name,lifecycle_state)
-          select $5::uuid,'COMMUNITY',$2,$2,'ACTIVE'
-          where exists(select 1 from principal)
-            and not exists(select 1 from existing)
+          values($5::uuid,'COMMUNITY',$2,$2,'ACTIVE')
           returning entity_id
         ), w as (
           insert into legakeys.workspaces(id,workspace_type,name,purpose,scope_ref,lifecycle,governance_ref,version,created_at,updated_at)
@@ -415,23 +418,19 @@ async function api(request: Request, env: Env): Promise<Response> {
           select $5::uuid,w.id,coalesce((select entity_id from oe),$5::uuid),$6::text,'ACTIVE','COMMUNITY','1.0','DRAFT','EXPLICIT_AUTHORIZATION',
                  '{"platform_controlled":true,"community_can_configure":true,"community_can_disable_platform_service":false}'::jsonb,
                  jsonb_build_object('created_by_participant',$1::text,'join_code',$11::text)
-          from w
-          returning workspace_id
-        ), rel as (
-          insert into legakeys.world_relationships(subject_entity_id,relationship_type,object_entity_id,context_entity_id,state,source_reference,created_at,updated_at)
-          select (select entity_id from oe),'OPERATES',$5::uuid,$5::uuid,'ACTIVE','community-onboarding',now(),now()
-          where exists(select 1 from oe)
-          returning relationship_id
+          from w returning community_entity_id,workspace_id
+        ), cr as (
+          insert into legakeys.community_roster(id,community_entity_id,participant_ref,relationship_type,state,scope_ref,source_reference)
+          select $12::uuid,cp.community_entity_id,$1,'MEMBER','ACTIVE',cp.community_entity_id,'community-onboarding'
+          from cp returning id
         )
         select w.id as workspace_id,$5::uuid as community_entity_id,
                (select identity_id from oi) as operator_identity_id,
                (select entity_id from oe) as operator_entity_id,
                $6::text as operator_type
         from w
-        union all
-        select e.workspace_id,NULL::uuid,NULL::uuid,NULL::uuid,'COMMUNITY' from existing e
         limit 1
-      `,[participantId,name,ids.operator,ids.operatorIdentity,ids.entity,operatorType,organizationName,ids.workspace,purpose,ids.membership,joinCode]);
+      `,[participantId,name,ids.operator,ids.operatorIdentity,ids.entity,operatorType,organizationName,ids.workspace,purpose,ids.membership,joinCode,ids.roster]);
       if(!rows[0]) return cors(json({ok:false,code:"COMMUNITY_CREATE_FAILED",message:"The participant could not create a community space."},400),request);
       return cors(json({ok:true,state:"CREATED",community_entity_id:rows[0].community_entity_id,operator_entity_id:rows[0].operator_entity_id,operator_type:rows[0].operator_type,workspace_id:rows[0].workspace_id,join_code:joinCode,role:"COMMUNITY_INITIATOR",truth:{community_space:"created",operator:"declared",authority:"not granted by creation",membership:"explicit",platform_services:"LegaKeys-controlled"}}),request);
     }
