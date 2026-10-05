@@ -138,7 +138,7 @@ jobs:
             );
           DELETE FROM legakeys.community_profiles WHERE settings->>'join_code' LIKE 'LK-HTTP-SMOKE-%';
           DELETE FROM legakeys.workspaces WHERE name LIKE '__HTTP_SMOKE_COMMUNITY_%';
-          DELETE FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b') OR canonical_name LIKE '__HTTP_SMOKE_COMMUNITY_%';
+          DELETE FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b');
           DELETE FROM legakeys.sessions WHERE account_id IN (
             SELECT a.account_id FROM legakeys.accounts a
             JOIN legakeys.identities i ON i.identity_id=a.identity_id
