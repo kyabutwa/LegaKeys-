@@ -201,6 +201,13 @@ async function api(request: Request, env: Env): Promise<Response> {
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const sessions=await query(env,"select session_id,state,created_at,last_seen_at,expires_at,revoked_at from legakeys.sessions where account_id=$1 order by created_at desc",[r.account_id]),credentials=await query(env,"select credential_id,credential_type,state,verification_state,subject_reference,expires_at,revoked_at,created_at from legakeys.credentials where account_id=$1 order by created_at",[r.account_id]);return cors(json({ok:true,state:"AUTHENTICATED",data:{account:publicAccount(r),sessions,credentials}}),request);
     }
+    if(request.method==="POST"&&url.pathname==="/api/account/profile"){
+      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const b=await request.json().catch(()=>null) as any,displayName=String(b?.displayName??"").trim();
+      if(displayName.length<1||displayName.length>160)return cors(json({ok:false,state:"INVALID_INPUT",code:"DISPLAY_NAME_INVALID"},400),request);
+      await query(env,"update legakeys.persons set display_name=$1,updated_at=now() where entity_id=(select entity_id from legakeys.identities where identity_id=$2)",[displayName,session.identity_id]);
+      return cors(json({ok:true,state:"PROFILE_UPDATED",display_name:displayName}),request);
+    }
     if(request.method==="GET"&&url.pathname==="/api/identity/trust"){
       const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const evidence=await query(env,`select evidence_id,evidence_type,submission_state,capture_method,document_side,mime_type,file_size_bytes,content_hash,storage_state,extracted_fields,truth_state,submitted_at,reviewed_at,expires_at from legakeys.identity_evidence where identity_id=$1 order by created_at desc`,[session.identity_id]);
@@ -322,6 +329,11 @@ async function api(request: Request, env: Env): Promise<Response> {
     }
     if(request.method==="POST"&&url.pathname==="/api/account/close"){
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);await query(env,"update legakeys.credentials set state='REVOKED',revoked_at=now(),updated_at=now()where account_id=$1",[r.account_id]);await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now()where account_id=$1",[r.account_id]);await query(env,"update legakeys.participants set state='SUSPENDED',updated_at=now()where identity_id=$1 and state='ACTIVE'",[r.identity_id]);await query(env,"update legakeys.accounts set state='CLOSED',updated_at=now()where account_id=$1",[r.account_id]);const out=cors(json({ok:true,state:"CLOSED"}),request),h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie("",0));return new Response(out.body,{status:out.status,headers:h});
+    }
+    if(request.method==="POST"&&url.pathname==="/api/session/revoke-all"){
+      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now() where account_id=$1 and session_id<>$2 and state='ACTIVE'",[session.account_id,session.session_id]);
+      return cors(json({ok:true,state:"OTHER_SESSIONS_REVOKED"}),request);
     }
     if(request.method==="POST"&&url.pathname==="/api/session/revoke"){
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);const b=await request.json().catch(()=>null) as any,id=String(b?.session_id??"");if(!id)return cors(json({ok:false,state:"INVALID_INPUT",code:"SESSION_ID_REQUIRED"},400),request);await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now()where session_id=$1 and account_id=$2",[id,r.account_id]);return cors(json({ok:true,state:"REVOKED",session_id:id}),request);
