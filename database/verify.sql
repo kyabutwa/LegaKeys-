@@ -32,7 +32,7 @@ left join information_schema.tables c
   on c.table_schema='legakeys' and c.table_name=e.table_name
 order by e.table_name;
 
-do $$
+do $verify$$
 declare
   missing_count integer;
   bad_fk_count integer;
@@ -123,13 +123,13 @@ begin
   if decision_columns_missing > 0 then
     raise exception 'LEGAKEYS_AUTHORIZATION_SCHEMA_INVALID: % required decision columns missing', decision_columns_missing;
   end if;
-end $$;
+end $verify$$;
 
 select 'LEGAKEYS_DATABASE_VERIFICATION=GREEN' as result;
 
 -- Migration ledger: the canonical database must be able to prove which
 -- repository migrations were applied and when.
-do $
+do $verify$
 declare
   missing_migrations integer;
 begin
@@ -155,12 +155,12 @@ begin
   if missing_migrations > 0 then
     raise exception 'LEGAKEYS_MIGRATION_LEDGER_INCOMPLETE: % migrations missing', missing_migrations;
   end if;
-end $;
+end $verify$;
 
 -- Foundational relationship integrity: every participant must resolve to the
 -- same identity through its participation; every account must resolve to one
 -- canonical identity; every active session must resolve to an active account.
-do $
+do $verify$
 declare
   orphan_participants integer;
   identity_mismatch integer;
@@ -190,10 +190,10 @@ begin
   if active_session_mismatch > 0 then
     raise exception 'LEGAKEYS_ACTIVE_SESSION_ACCOUNT_MISMATCH: %', active_session_mismatch;
   end if;
-end $;
+end $verify$;
 
 -- Lifecycle window integrity across the temporal foundation.
-do $
+do $verify$
 declare
   bad_windows integer;
 begin
@@ -220,11 +220,11 @@ begin
   if bad_windows > 0 then
     raise exception 'LEGAKEYS_INVALID_LIFECYCLE_WINDOWS: %', bad_windows;
   end if;
-end $;
+end $verify$;
 
 -- Required canonical indexes. These are operational integrity guarantees,
 -- not performance-only conveniences.
-do $
+do $verify$
 declare
   missing_indexes integer;
 begin
@@ -252,6 +252,6 @@ begin
   if missing_indexes > 0 then
     raise exception 'LEGAKEYS_CANONICAL_INDEX_SET_INCOMPLETE: % indexes missing', missing_indexes;
   end if;
-end $;
+end $verify$;
 
 select 'LEGAKEYS_CANONICAL_DATABASE_INTEGRITY=GREEN' as result;
