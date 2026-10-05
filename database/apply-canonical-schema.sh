@@ -10,6 +10,8 @@ echo "Target is supplied through DATABASE_URL; credentials are never written to 
 
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/0000_canonical_runtime_contract.sql
 
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -P pager=off -c "select table_name,column_name,data_type,is_nullable from information_schema.columns where table_schema='legakeys' and table_name in ('authorization_decisions','authorization_reasons') order by table_name,ordinal_position"
+
 schema_files=(
   implementation/identity/schema.sql
   implementation/identity/evidence-and-biometric-schema.sql
