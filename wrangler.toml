@@ -1,4 +1,4 @@
-name = "legakeys"
+name = "legakeys1"
 main = "worker.ts"
 compatibility_date = "2026-10-04"
 
