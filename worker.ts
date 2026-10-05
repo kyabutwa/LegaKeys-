@@ -582,6 +582,7 @@ async function api(request: Request, env: Env): Promise<Response> {
     if (request.method === "POST" && url.pathname === "/api/community/plan") {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),name=String(b?.name??"").trim(),objective=String(b?.objective??"").trim();
+      const actorEntityId=String(session.entity_id??"");
       if(!communityId||name.length<2||objective.length<2)return cors(json({ok:false,code:"PLAN_INPUT_REQUIRED"},400),request);
       const operator=await communityOperatorScope(env,session,communityId);
       if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
@@ -591,6 +592,7 @@ async function api(request: Request, env: Env): Promise<Response> {
     if (request.method === "POST" && url.pathname === "/api/community/work-order") {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),workspaceId=String(b?.workspaceId??""),title=String(b?.title??"").trim(),description=String(b?.description??"").trim(),priority=String(b?.priority??"NORMAL").toUpperCase();
+      const actorEntityId=String(session.entity_id??"");
       if(!communityId||!workspaceId||title.length<2)return cors(json({ok:false,code:"WORK_ORDER_INPUT_REQUIRED"},400),request);
       if(!["LOW","NORMAL","HIGH","URGENT"].includes(priority))return cors(json({ok:false,code:"INVALID_PRIORITY"},400),request);
       const operator=await communityOperatorScope(env,session,communityId,workspaceId);
