@@ -513,6 +513,52 @@ async function api(request: Request, env: Env): Promise<Response> {
       }));
       return cors(json({ok:true,state:"VERIFIED",selected_community_entity_id:selectedCommunityId||communities[0]?.community?.entity_id||null,data:communities,truth:{source:"canonical community operating tables",operator_scope:"authenticated community/organization identity, creator account, or explicit participant operator delegation",membership:"does not imply operating authority",service_control:"LegaKeys",provider_state:"declared/verified separately",authorization:"operational membership never substitutes for consequential authorization"}}),request);
     }
+    if (request.method === "GET" && url.pathname === "/api/community/identity-search") {
+      const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
+      const q=String(url.searchParams.get("q")??"").trim(); const communityId=String(url.searchParams.get("community_entity_id")??"").trim();
+      if(!communityId||q.length<2)return cors(json({ok:false,code:"SEARCH_INPUT_REQUIRED"},400),request);
+      if(!await communityOperatorScope(env,session,communityId))return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const rows=await query(env,"select i.entity_id,i.identity_id,i.identity_type,i.state,i.verification_state,a.account_id,p.person_id,p.display_name,p.legal_name,pt.participant_id from legakeys.identities i left join legakeys.accounts a on a.identity_id=i.identity_id left join legakeys.persons p on p.entity_id=i.entity_id left join legakeys.participants pt on pt.identity_id=i.identity_id and pt.state='ACTIVE' where i.state='ACTIVE' and (coalesce(p.display_name,'') ilike $1 or coalesce(p.legal_name,'') ilike $1 or i.entity_id::text=$2) and not exists (select 1 from legakeys.community_roster cr where cr.community_entity_id=$3 and cr.participant_ref=pt.participant_id and cr.state in ('ACTIVE','INVITED')) limit 20",["%"+q+"%",q,communityId]);
+      return cors(json({ok:true,state:"VERIFIED",data:rows.map(r=>({entity_id:r.entity_id,identity_id:r.identity_id,identity_type:r.identity_type,verification_state:r.verification_state,account_id:r.account_id,participant_id:r.participant_id,display_name:r.display_name||r.legal_name||"Unnamed identity"}))}),request);
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/community/invite") {
+      const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request); const b=await request.json().catch(()=>({})) as any;
+      const communityId=String(b?.communityEntityId??""),targetEntityId=String(b?.targetEntityId??""),relationship=String(b?.relationshipType??"MEMBER").toUpperCase(),invitationKind=String(b?.invitationKind??"PERSON").toUpperCase(); const allowed=["RESIDENT","OWNER","TENANT","WORKER","MANAGER","VISITOR","MEMBER","GUEST","STUDENT","CONTRACTOR","OTHER"];
+      if(!communityId||!targetEntityId||!allowed.includes(relationship)||!["PERSON","PROVIDER"].includes(invitationKind))return cors(json({ok:false,code:"INVITATION_INPUT_INVALID"},400),request); if(!await communityOperatorScope(env,session,communityId))return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const target=await query(env,"select i.entity_id,i.identity_id,pt.participant_id from legakeys.identities i left join legakeys.participants pt on pt.identity_id=i.identity_id and pt.state='ACTIVE' where i.entity_id=$1 and i.state='ACTIVE' limit 1",[targetEntityId]); if(!target[0])return cors(json({ok:false,code:"IDENTITY_NOT_FOUND"},404),request);
+      const invitationId=crypto.randomUUID(); await query(env,"insert into legakeys.community_invitations(invitation_id,community_entity_id,target_entity_id,target_participant_ref,relationship_type,invitation_kind,state,message,expires_at,created_by_entity_id) values($1,$2,$3,$4,$5,$6,'PENDING',$7,now()+interval '14 days',$8)",[invitationId,communityId,targetEntityId,target[0].participant_id||null,relationship,invitationKind,String(b?.message??"").trim()||null,String(session.entity_id)]);
+      return cors(json({ok:true,state:"PENDING",invitation_id:invitationId,truth:{identity:"existing",relationship:"pending until accepted",authority:"not implied"}}),request);
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/community/invitations") {
+      const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
+      const rows=await query(env,"select ci.invitation_id,ci.community_entity_id,ci.target_entity_id,ci.relationship_type,ci.invitation_kind,ci.state,ci.message,ci.expires_at,cp.settings->>'name' as community_name from legakeys.community_invitations ci join legakeys.community_profiles cp on cp.community_entity_id=ci.community_entity_id where ci.target_entity_id=$1 and ci.state='PENDING' order by ci.created_at desc",[String(session.entity_id)]);
+      return cors(json({ok:true,state:"VERIFIED",data:rows}),request);
+    }
+    if (request.method === "POST" && url.pathname === "/api/community/invitation/accept") {
+      const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request); const b=await request.json().catch(()=>({})); const id=String(b?.invitationId??"");
+      const rows=await query(env,"select * from legakeys.community_invitations where invitation_id=$1 and target_entity_id=$2 and state='PENDING' and (expires_at is null or expires_at>now()) limit 1",[id,String(session.entity_id)]); if(!rows[0])return cors(json({ok:false,code:"INVITATION_NOT_FOUND"},404),request);
+      const inv=rows[0];
+      if(String(inv.invitation_kind)==="PROVIDER"){await query(env,"insert into legakeys.community_provider_links(id,community_entity_id,provider_entity_id,provider_participant_ref,verification_state,state,service_scope) values($1,$2,$3,$4,'PENDING','PROPOSED',$5::jsonb) on conflict (community_entity_id,provider_entity_id) do update set updated_at=now()",[crypto.randomUUID(),inv.community_entity_id,inv.target_entity_id,session.participant_id||null,JSON.stringify({invitation_id:id})]);}
+      else if(session.participant_id){await query(env,"insert into legakeys.community_roster(id,community_entity_id,participant_ref,relationship_type,state,scope_ref,source_reference) values($1,$2,$3,$4,'ACTIVE',$2,$5) on conflict do nothing",[crypto.randomUUID(),inv.community_entity_id,session.participant_id,inv.relationship_type,"invitation:"+id]);}
+      else return cors(json({ok:false,code:"PARTICIPANT_REQUIRED_FOR_PERSON_RELATIONSHIP"},409),request);
+      await query(env,"update legakeys.community_invitations set state='ACCEPTED',updated_at=now() where invitation_id=$1",[id]); return cors(json({ok:true,state:"ACCEPTED",community_entity_id:inv.community_entity_id}),request);
+    }
+    if (request.method === "POST" && url.pathname === "/api/community/invitation/status") {
+      const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request); const b=await request.json().catch(()=>({})); const communityId=String(b?.communityEntityId??""),id=String(b?.invitationId??""),state=String(b?.state??"").toUpperCase();
+      if(!communityId||!id||!["DECLINED","EXPIRED","REVOKED"].includes(state))return cors(json({ok:false,code:"INVITATION_STATUS_INVALID"},400),request); if(!await communityOperatorScope(env,session,communityId))return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      await query(env,"update legakeys.community_invitations set state=$3,updated_at=now() where invitation_id=$1 and community_entity_id=$2 and state='PENDING'",[id,communityId,state]); return cors(json({ok:true,state:"UPDATED"}),request);
+    }
+    if (request.method === "POST" && url.pathname === "/api/community/status") {
+      const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
+      const b=await request.json().catch(()=>({})); const communityId=String(b?.communityEntityId??""),state=String(b?.state??"").toUpperCase();
+      if(!communityId||!["CONFIGURING","ACTIVE","DEGRADED","SUSPENDED","ARCHIVED"].includes(state))return cors(json({ok:false,code:"COMMUNITY_STATUS_INPUT_INVALID"},400),request);
+      if(!await communityOperatorScope(env,session,communityId))return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      await query(env,"update legakeys.community_profiles set onboarding_state=$2,updated_at=now() where community_entity_id=$1",[communityId,state]);
+      await query(env,"update legakeys.workspaces set lifecycle=$2,updated_at=now() where id=(select workspace_id from legakeys.community_profiles where community_entity_id=$1)",[communityId,state==="ACTIVE"?"ACTIVE":state==="ARCHIVED"?"ARCHIVED":state==="SUSPENDED"?"SUSPENDED":"DEGRADED"]);
+      return cors(json({ok:true,state:"UPDATED",community_state:state}),request);
+    }
     if (request.method === "POST" && url.pathname === "/api/community/roster") {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),participantRef=String(b?.participantRef??""),relationship=String(b?.relationshipType??"MEMBER").toUpperCase();

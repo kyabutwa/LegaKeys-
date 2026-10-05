@@ -259,3 +259,25 @@ ALTER TABLE legakeys.community_plans ALTER COLUMN created_by_participant_ref DRO
 ALTER TABLE legakeys.community_work_orders ALTER COLUMN created_by_participant_ref DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_community_plans_actor ON legakeys.community_plans(created_by_actor_entity_id);
 CREATE INDEX IF NOT EXISTS idx_community_work_orders_actor ON legakeys.community_work_orders(created_by_actor_entity_id);
+
+
+-- Identity-first community invitations. Invitations attach an existing LegaKeys identity/participant;
+-- they never create a duplicate identity and never grant consequential authority by themselves.
+CREATE TABLE IF NOT EXISTS legakeys.community_invitations (
+  invitation_id uuid PRIMARY KEY,
+  community_entity_id uuid NOT NULL REFERENCES legakeys.community_profiles(community_entity_id),
+  target_entity_id uuid REFERENCES legakeys.entities(entity_id),
+  target_participant_ref uuid REFERENCES legakeys.participants(participant_id),
+  relationship_type text NOT NULL CHECK (relationship_type IN ('RESIDENT','OWNER','TENANT','WORKER','MANAGER','VISITOR','MEMBER','GUEST','STUDENT','CONTRACTOR','OTHER')),
+  invitation_kind text NOT NULL DEFAULT 'PERSON' CHECK (invitation_kind IN ('PERSON','PROVIDER')),
+  requested_role text,
+  state text NOT NULL DEFAULT 'PENDING' CHECK (state IN ('PENDING','ACCEPTED','DECLINED','EXPIRED','REVOKED')),
+  message text,
+  expires_at timestamptz,
+  created_by_entity_id uuid NOT NULL REFERENCES legakeys.entities(entity_id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (community_entity_id,target_entity_id,relationship_type,state)
+);
+CREATE INDEX IF NOT EXISTS idx_community_invitations_community ON legakeys.community_invitations(community_entity_id,state,created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_community_invitations_target ON legakeys.community_invitations(target_entity_id,state);
