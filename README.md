@@ -37,7 +37,7 @@ UNITED OF BALEGA
     └── 17 CORE EXECUTION MODEL
 ```
 
-## Canonical security invariant
+## v1.1.0 identity and community rule\n\n**Communities are independent identities.** Creating a community does not require a participant account, create a participant, or create a person-to-community membership. People retain one canonical BeatIdentity and may participate in many communities. Community accounts use the same identity/account/session fabric without becoming person participants.\n\n## Canonical security invariant
 
 ```
 NO AUTHORIZATION
