@@ -134,8 +134,10 @@ jobs:
           BEGIN;
           DELETE FROM legakeys.community_roster
             WHERE community_entity_id IN (
-              SELECT community_entity_id FROM legakeys.community_profiles
-              WHERE settings->>'join_code' LIKE 'LK-HTTP-SMOKE-%'
+              SELECT cp.community_entity_id FROM legakeys.community_profiles cp
+              JOIN legakeys.workspaces w ON w.id = cp.workspace_id
+              WHERE w.name LIKE '__HTTP_SMOKE_COMMUNITY_%'
+                 OR cp.settings->>'join_code' LIKE 'LK-HTTP-SMOKE-%'
             );
           DELETE FROM legakeys.workspace_memberships
             WHERE workspace_id IN (
@@ -227,7 +229,7 @@ jobs:
           if(afterLogout.r.status!==401||afterLogout.body?.code!=="CANONICAL_SESSION_REQUIRED") throw new Error("revoked session remained usable: HTTP "+afterLogout.r.status+" "+JSON.stringify(afterLogout.body));
           const cookieA2=await login(a);
           m=await request("/api/me",{headers:{cookie:cookieA2}});
-          if(!m.r.ok||!m.body?.ok||m.body?.data?.participant?.participant_id) throw new Error("re-login failed after logout: HTTP "+m.r.status+" "+JSON.stringify(m.body));
+          if(!m.r.ok||!m.body?.ok||!m.body?.data?.participant?.participant_id) throw new Error("re-login failed after logout: HTTP "+m.r.status+" "+JSON.stringify(m.body));
           let c=await request("/api/community/create",{method:"POST",body:JSON.stringify({name:`__HTTP_SMOKE_COMMUNITY_${id}`,purpose:"HTTP runtime smoke",operatorType:"COMMUNITY",organizationName:"",...community})});
           if(!c.r.ok||!c.body?.ok||!c.body?.join_code) throw new Error("independent community create failed: HTTP "+c.r.status+" "+JSON.stringify(c.body));
           const communityCookie=await login(community);
