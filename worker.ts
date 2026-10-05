@@ -8,6 +8,21 @@ interface Env {
 
 type Row = Record<string, unknown>;
 
+
+const SESSION_COOKIE="__Host-legakeys_session";
+const SESSION_TTL_SECONDS=604800;
+function requestOriginAllowed(request:Request){const origin=request.headers.get("Origin");return !origin||origin===new URL(request.url).origin}
+function cookieValue(request:Request,name:string){const raw=request.headers.get("Cookie")??"";for(const part of raw.split(";")){const [key,...rest]=part.trim().split("=");if(key===name)return rest.join("=")||null}return null}
+function bytesToBase64Url(bytes:Uint8Array){let b="";for(const x of bytes)b+=String.fromCharCode(x);return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
+function base64UrlToBytes(v:string){const b=atob(v.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((v.length+3)%4));const out=new Uint8Array(b.length);for(let i=0;i<b.length;i++)out[i]=b.charCodeAt(i);return out}
+async function sha256(v:string){return bytesToBase64Url(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))))}
+async function derivePassword(password:string,salt:Uint8Array,iterations=600000){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),{name:"PBKDF2"},false,["deriveBits"]);return bytesToBase64Url(new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations,hash:"SHA-256"},key,256)))}
+async function passwordRecord(password:string){const salt=crypto.getRandomValues(new Uint8Array(16));const iterations=600000;return "pbkdf2-sha256$v1$"+iterations+"$"+bytesToBase64Url(salt)+"$"+await derivePassword(password,salt,iterations)}
+async function verifyPassword(password:string,record:string){const p=record.split("$");if(p.length!==5||p[0]!=="pbkdf2-sha256"||p[1]!=="v1")return false;const n=Number(p[2]);if(!Number.isInteger(n)||n<100000||n>1000000)return false;const a=new TextEncoder().encode(await derivePassword(password,base64UrlToBytes(p[3]),n)),b=new TextEncoder().encode(p[4]);if(a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)d|=a[i]^b[i];return d===0}
+function sessionCookie(v:string,maxAge=SESSION_TTL_SECONDS){return SESSION_COOKIE+"="+v+"; Max-Age="+maxAge+"; Path=/; Secure; HttpOnly; SameSite=Strict"}
+async function canonicalSession(env:Env,request:Request):Promise<Row|null>{const raw=cookieValue(request,SESSION_COOKIE);if(!raw)return null;const rows=await query(env,`select s.session_id,s.account_id,s.expires_at,a.state as account_state,a.identity_id,i.identity_type,i.verification_state,p.person_id,p.legal_name,p.display_name,pt.participant_id,pt.state as participant_state,pa.participation_id,pa.context_entity_id,pa.state as participation_state,pa.scope from legakeys.sessions s join legakeys.accounts a on a.account_id=s.account_id join legakeys.identities i on i.identity_id=a.identity_id left join legakeys.persons p on p.entity_id=i.entity_id left join legakeys.participants pt on pt.identity_id=i.identity_id and pt.state='ACTIVE' left join legakeys.participations pa on pa.participation_id=pt.participation_id where s.session_secret_reference=$1 and s.state='ACTIVE' and s.expires_at>now() and a.state='ACTIVE' order by pa.created_at desc nulls last limit 1`,[await sha256(raw)]);return rows[0]??null}
+function publicAccount(r:Row){return {account_id:r.account_id,account_state:r.account_state,identity_id:r.identity_id,identity_type:r.identity_type,verification_state:r.verification_state,person:{person_id:r.person_id,legal_name:r.legal_name,display_name:r.display_name},participant:{participant_id:r.participant_id,state:r.participant_state},participation:{participation_id:r.participation_id,context_entity_id:r.context_entity_id,state:r.participation_state,scope:r.scope}}}
+
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
 }
@@ -97,7 +112,60 @@ async function api(request: Request, env: Env): Promise<Response> {
     }
   }
 
+
+const SESSION_COOKIE="__Host-legakeys_session";
+const SESSION_TTL_SECONDS=604800;
+function requestOriginAllowed(request:Request){const origin=request.headers.get("Origin");return !origin||origin===new URL(request.url).origin}
+function cookieValue(request:Request,name:string){const raw=request.headers.get("Cookie")??"";for(const part of raw.split(";")){const [key,...rest]=part.trim().split("=");if(key===name)return rest.join("=")||null}return null}
+function bytesToBase64Url(bytes:Uint8Array){let b="";for(const x of bytes)b+=String.fromCharCode(x);return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
+function base64UrlToBytes(v:string){const b=atob(v.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((v.length+3)%4));const out=new Uint8Array(b.length);for(let i=0;i<b.length;i++)out[i]=b.charCodeAt(i);return out}
+async function sha256(v:string){return bytesToBase64Url(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))))}
+async function derivePassword(password:string,salt:Uint8Array,iterations=600000){const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),{name:"PBKDF2"},false,["deriveBits"]);return bytesToBase64Url(new Uint8Array(await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations,hash:"SHA-256"},key,256)))}
+async function passwordRecord(password:string){const salt=crypto.getRandomValues(new Uint8Array(16));const iterations=600000;return "pbkdf2-sha256$v1$"+iterations+"$"+bytesToBase64Url(salt)+"$"+await derivePassword(password,salt,iterations)}
+async function verifyPassword(password:string,record:string){const p=record.split("$");if(p.length!==5||p[0]!=="pbkdf2-sha256"||p[1]!=="v1")return false;const n=Number(p[2]);if(!Number.isInteger(n)||n<100000||n>1000000)return false;const a=new TextEncoder().encode(await derivePassword(password,base64UrlToBytes(p[3]),n)),b=new TextEncoder().encode(p[4]);if(a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)d|=a[i]^b[i];return d===0}
+function sessionCookie(v:string,maxAge=SESSION_TTL_SECONDS){return SESSION_COOKIE+"="+v+"; Max-Age="+maxAge+"; Path=/; Secure; HttpOnly; SameSite=Strict"}
+async function canonicalSession(env:Env,request:Request):Promise<Row|null>{const raw=cookieValue(request,SESSION_COOKIE);if(!raw)return null;const rows=await query(env,`select s.session_id,s.account_id,s.expires_at,a.state as account_state,a.identity_id,i.identity_type,i.verification_state,p.person_id,p.legal_name,p.display_name,pt.participant_id,pt.state as participant_state,pa.participation_id,pa.context_entity_id,pa.state as participation_state,pa.scope from legakeys.sessions s join legakeys.accounts a on a.account_id=s.account_id join legakeys.identities i on i.identity_id=a.identity_id left join legakeys.persons p on p.entity_id=i.entity_id left join legakeys.participants pt on pt.identity_id=i.identity_id and pt.state='ACTIVE' left join legakeys.participations pa on pa.participation_id=pt.participation_id where s.session_secret_reference=$1 and s.state='ACTIVE' and s.expires_at>now() and a.state='ACTIVE' order by pa.created_at desc nulls last limit 1`,[await sha256(raw)]);return rows[0]??null}
+function publicAccount(r:Row){return {account_id:r.account_id,account_state:r.account_state,identity_id:r.identity_id,identity_type:r.identity_type,verification_state:r.verification_state,person:{person_id:r.person_id,legal_name:r.legal_name,display_name:r.display_name},participant:{participant_id:r.participant_id,state:r.participant_state},participation:{participation_id:r.participation_id,context_entity_id:r.context_entity_id,state:r.participation_state,scope:r.scope}}}
+
   try {
+
+    if(request.method!=="GET"&&!requestOriginAllowed(request))return cors(json({ok:false,state:"DENIED",code:"CROSS_ORIGIN_MUTATION_BLOCKED"},403),request);
+    if(request.method==="POST"&&url.pathname==="/api/account/signup"){
+      const b=await request.json().catch(()=>null) as any,e=String(b?.email??"").trim().toLowerCase(),pw=String(b?.password??""),name=String(b?.legalName??"").trim(),display=String(b?.displayName??"").trim()||name,country=String(b?.countryOfResidence??"").trim()||null;
+      if(!/^\S+@\S+\.\S+$/.test(e)||pw.length<12||name.length<2)return cors(json({ok:false,state:"INVALID_INPUT",code:"SIGNUP_INPUT_INVALID"},400),request);
+      if((await query(env,"select 1 from legakeys.credentials where credential_type='EMAIL_PASSWORD' and lower(subject_reference)=lower($1) limit 1",[e])).length)return cors(json({ok:false,state:"CONFLICT",code:"ACCOUNT_ALREADY_EXISTS"},409),request);
+      const secret=await passwordRecord(pw);
+      const rows=await query(env,`with e as(insert into legakeys.entities(entity_type,canonical_name,display_name,lifecycle_state)values('PERSON',$1,$2,'ACTIVE')returning entity_id),i as(insert into legakeys.identities(entity_id,identity_type,state,verification_state)select entity_id,'PERSON','ACTIVE','UNVERIFIED' from e returning identity_id,entity_id),p as(insert into legakeys.persons(entity_id,legal_name,display_name,country_of_residence)select entity_id,$1,$2,$3 from i returning person_id,entity_id),a as(insert into legakeys.accounts(identity_id,state)select identity_id,'ACTIVE' from i returning account_id,identity_id),c as(insert into legakeys.credentials(account_id,credential_type,state,subject_reference,verification_state,secret_reference)select account_id,'EMAIL_PASSWORD','ACTIVE',$4,'UNVERIFIED',$5 from a returning credential_id,account_id),u as(update legakeys.accounts a set primary_credential_id=c.credential_id,updated_at=now()from c where a.account_id=c.account_id returning a.account_id,a.identity_id),pa as(insert into legakeys.participations(identity_id,state,scope)select identity_id,'ACTIVE','{}'::jsonb from i returning participation_id,identity_id),pt as(insert into legakeys.participants(participation_id,identity_id,state)select participation_id,identity_id,'ACTIVE'from pa returning participant_id,participation_id,identity_id)select u.account_id,u.identity_id,p.person_id,pt.participant_id,pt.participation_id from u join i on i.identity_id=u.identity_id join p on p.entity_id=i.entity_id join pt on pt.identity_id=u.identity_id limit 1`,[name,display,country,e,secret]);
+      return cors(json({ok:true,state:"CREATED",account_id:rows[0]?.account_id,identity_id:rows[0]?.identity_id,participant_id:rows[0]?.participant_id,verification_state:"UNVERIFIED"}),request);
+    }
+    if(request.method==="POST"&&url.pathname==="/api/auth/login"){
+      const b=await request.json().catch(()=>null) as any,e=String(b?.email??"").trim().toLowerCase(),pw=String(b?.password??"");
+      const r=(await query(env,`select a.account_id,a.state as account_state,c.state as credential_state,c.secret_reference from legakeys.credentials c join legakeys.accounts a on a.account_id=c.account_id where c.credential_type='EMAIL_PASSWORD' and lower(c.subject_reference)=lower($1) limit 1`,[e]))[0];
+      if(!r||r.account_state!=="ACTIVE"||r.credential_state!=="ACTIVE"||!r.secret_reference||!(await verifyPassword(pw,String(r.secret_reference))))return cors(json({ok:false,state:"DENIED",code:"INVALID_CREDENTIALS"},401),request);
+      const raw=bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32))),secret=await sha256(raw),ss=await query(env,"insert into legakeys.sessions(account_id,state,session_secret_reference,last_seen_at,expires_at)values($1,'ACTIVE',$2,now(),now()+interval '7 days')returning session_id,expires_at",[r.account_id]);
+      await query(env,"update legakeys.accounts set last_authenticated_at=now(),updated_at=now()where account_id=$1",[r.account_id]);
+      const out=cors(json({ok:true,state:"AUTHENTICATED",session_id:ss[0].session_id,expires_at:ss[0].expires_at}),request),h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie(raw));return new Response(out.body,{status:out.status,headers:h});
+    }
+    if(request.method==="POST"&&url.pathname==="/api/auth/logout"){
+      const raw=cookieValue(request,SESSION_COOKIE);if(raw)await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now()where session_secret_reference=$1 and state='ACTIVE'",[await sha256(raw)]);
+      const out=cors(json({ok:true,state:"SIGNED_OUT"}),request),h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie("",0));return new Response(out.body,{status:out.status,headers:h});
+    }
+    if(request.method==="GET"&&url.pathname==="/api/me"){
+      const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);await query(env,"update legakeys.sessions set last_seen_at=now()where session_id=$1",[r.session_id]);return cors(json({ok:true,state:"AUTHENTICATED",data:publicAccount(r)}),request);
+    }
+    if(request.method==="GET"&&url.pathname==="/api/account"){
+      const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const sessions=await query(env,"select session_id,state,created_at,last_seen_at,expires_at,revoked_at from legakeys.sessions where account_id=$1 order by created_at desc",[r.account_id]),credentials=await query(env,"select credential_id,credential_type,state,verification_state,subject_reference,expires_at,revoked_at,created_at from legakeys.credentials where account_id=$1 order by created_at",[r.account_id]);return cors(json({ok:true,state:"AUTHENTICATED",data:{account:publicAccount(r),sessions,credentials}}),request);
+    }
+    if(request.method==="POST"&&url.pathname==="/api/account/suspend"){
+      const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);await query(env,"update legakeys.credentials set state='DISABLED',updated_at=now()where account_id=$1 and state='ACTIVE'",[r.account_id]);await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now()where account_id=$1 and state='ACTIVE'",[r.account_id]);await query(env,"update legakeys.accounts set state='SUSPENDED',updated_at=now()where account_id=$1",[r.account_id]);const out=cors(json({ok:true,state:"SUSPENDED"}),request),h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie("",0));return new Response(out.body,{status:out.status,headers:h});
+    }
+    if(request.method==="POST"&&url.pathname==="/api/account/close"){
+      const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);await query(env,"update legakeys.credentials set state='REVOKED',revoked_at=now(),updated_at=now()where account_id=$1",[r.account_id]);await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now()where account_id=$1",[r.account_id]);await query(env,"update legakeys.participants set state='SUSPENDED',updated_at=now()where identity_id=$1 and state='ACTIVE'",[r.identity_id]);await query(env,"update legakeys.accounts set state='CLOSED',updated_at=now()where account_id=$1",[r.account_id]);const out=cors(json({ok:true,state:"CLOSED"}),request),h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie("",0));return new Response(out.body,{status:out.status,headers:h});
+    }
+    if(request.method==="POST"&&url.pathname==="/api/session/revoke"){
+      const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);const b=await request.json().catch(()=>null) as any,id=String(b?.session_id??"");if(!id)return cors(json({ok:false,state:"INVALID_INPUT",code:"SESSION_ID_REQUIRED"},400),request);await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now()where session_id=$1 and account_id=$2",[id,r.account_id]);return cors(json({ok:true,state:"REVOKED",session_id:id}),request);
+    }
     if (request.method === "GET" && url.pathname === "/api/services") {
       const rows = await query(env, "select service_id, beat_code, canonical_name, description, lifecycle_state, truth_state, native_or_provider_mode, provenance, updated_at from legakeys.services order by canonical_name");
       return cors(json({ ok: true, state: "VERIFIED", data: rows }), request);
@@ -204,9 +272,6 @@ async function api(request: Request, env: Env): Promise<Response> {
       }), request);
     }
 
-    if (request.method === "GET" && url.pathname === "/api/me") {
-      return cors(json({ ok: false, state: "AUTH_REQUIRED", code: "CANONICAL_SESSION_REQUIRED" }, 401), request);
-    }
     if (request.method === "POST" && url.pathname === "/api/service-requests") {
       return cors(json({ ok: false, state: "AUTH_REQUIRED", code: "CANONICAL_SESSION_REQUIRED", message: "Consequential writes remain blocked until canonical session and authorization are connected." }, 401), request);
     }
