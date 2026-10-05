@@ -90,6 +90,7 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/runtime-smoke.sql
 
       - name: Deploy production Worker with Neon secret
+        if: github.event_name == 'push'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.LEGAKEYS }}
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
@@ -110,6 +111,7 @@ jobs:
           npx wrangler versions deploy --version-id "$version" --percentage 100 --yes
           echo "Promoted Worker version to 100% traffic: $version"
       - name: Run production HTTP onboarding smoke test
+        if: github.event_name == 'push'
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
           LEGAKEYS_PRODUCTION_URL: https://legakeys1.kyabutwabis-f.workers.dev
@@ -232,6 +234,7 @@ jobs:
           NODE
 
       - name: Verify deployed canonical runtime
+        if: github.event_name == 'push'
         env:
           LEGAKEYS_PRODUCTION_URL: https://legakeys1.kyabutwabis-f.workers.dev
         run: |
