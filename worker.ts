@@ -178,6 +178,51 @@ function publicAccount(r:Row){return {account_id:r.account_id,account_state:r.ac
       const rows = await query(env, "select id, event_source, event_version, event_type, action_id, execution_id, actor_id, principal_id, subject_type, subject_id, occurred_at, recorded_at, correlation_id, truth_state, source_type, source_reference from legakeys.events order by occurred_at desc limit 50");
       return cors(json({ ok: true, state: "VERIFIED", data: rows }), request);
     }
+    if (request.method === "GET" && url.pathname === "/api/workspace-center") {
+      const session = await canonicalSession(env, request);
+      if (!session) return cors(json({ ok:false, code:"AUTH_REQUIRED", message:"A canonical LegaKeys session is required." }, 401), request);
+      const type = url.searchParams.get("type");
+      const participantId = String(session.participant_id ?? "");
+      const allowedTypes = ["COMMUNITY_OPERATING","LEGAKEYS_OPERATING"];
+      const selectedType = type && allowedTypes.includes(type) ? type : null;
+      const workspaceRows = await query(env, `
+        select w.id,w.workspace_type,w.name,w.purpose,w.scope_ref,w.lifecycle,w.governance_ref,w.version,w.created_at,w.updated_at,
+               wm.id as membership_id,wm.role as membership_role,wm.status as membership_status,wm.scope_ref as membership_scope_ref,
+               wm.valid_from,wm.valid_until
+        from legakeys.workspaces w
+        left join legakeys.workspace_memberships wm
+          on wm.workspace_id=w.id and wm.participant_ref=$1 and wm.status='ACTIVE'
+        where ($2::text is null or w.workspace_type=$2)
+          and (wm.id is not null)
+        order by w.updated_at desc
+      `, [participantId, selectedType]);
+      const workspaces = [];
+      for (const ws of workspaceRows) {
+        const items = await query(env,`
+          select id,work_item_type,title,subject_ref,context_ref,proposal_ref,authorization_ref,status,created_at,updated_at
+          from legakeys.workspace_work_items
+          where workspace_id=$1
+          order by updated_at desc limit 25
+        `, [ws.id]);
+        const caps = await query(env,`
+          select id,capability_ref,role,scope_ref,policy_ref,enabled
+          from legakeys.workspace_capabilities
+          where workspace_id=$1 and enabled=true
+          order by role,capability_ref
+        `, [ws.id]);
+        workspaces.push({ workspace:{
+          id:ws.id,type:ws.workspace_type,name:ws.name,purpose:ws.purpose,scope_ref:ws.scope_ref,
+          lifecycle:ws.lifecycle,governance_ref:ws.governance_ref,version:ws.version,
+          created_at:ws.created_at,updated_at:ws.updated_at
+        }, membership:{
+          id:ws.membership_id,role:ws.membership_role,status:ws.membership_status,scope_ref:ws.membership_scope_ref,
+          valid_from:ws.valid_from,valid_until:ws.valid_until
+        }, capabilities:caps, work_items:items });
+      }
+      return cors(json({ok:true,participant_id:participantId,workspace_type:selectedType,workspaces,
+        truth:{source:"canonical workspace tables",live_providers:false,authorization:"workspace visibility/capability never substitutes for authorization"}}), request);
+    }
+
     if (request.method === "GET" && url.pathname === "/api/workspaces") {
       const rows = await query(env, "select id, workspace_type, name, purpose, scope_ref, lifecycle, governance_ref, version, created_at, updated_at from legakeys.workspaces order by updated_at desc");
       return cors(json({ ok: true, state: "VERIFIED", data: rows }), request);
