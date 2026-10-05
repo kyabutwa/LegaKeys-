@@ -154,6 +154,21 @@ async function api(request: Request, env: Env): Promise<Response> {
     if(request.method==="GET"&&url.pathname==="/api/me"){
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);await query(env,"update legakeys.sessions set last_seen_at=now()where session_id=$1",[r.session_id]);return cors(json({ok:true,state:"AUTHENTICATED",data:publicAccount(r)}),request);
     }
+    if(request.method==="GET"&&url.pathname==="/api/account/settings"){
+      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const rows=await query(env,"insert into legakeys.account_settings(account_id) values($1) on conflict(account_id) do update set account_id=excluded.account_id returning language,appearance,compact_mode,notifications,privacy,updated_at",[session.account_id]);
+      return cors(json({ok:true,state:"AUTHENTICATED",data:rows[0]}),request);
+    }
+    if(request.method==="POST"&&url.pathname==="/api/account/settings"){
+      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const b=await request.json().catch(()=>null) as any;
+      const language=String(b?.language??"en").slice(0,16),appearance=String(b?.appearance??"system").toLowerCase(),compactMode=Boolean(b?.compactMode);
+      if(!["system","light","dark"].includes(appearance))return cors(json({ok:false,state:"INVALID_INPUT",code:"APPEARANCE_INVALID"},400),request);
+      const notifications=typeof b?.notifications==="object"&&b.notifications?JSON.stringify(b.notifications):'{"security":true,"account":true,"participation":true,"services":true,"community":true}';
+      const privacy=typeof b?.privacy==="object"&&b.privacy?JSON.stringify(b.privacy):'{"activity_visibility":"private","evidence_visibility":"restricted"}';
+      const rows=await query(env,"insert into legakeys.account_settings(account_id,language,appearance,compact_mode,notifications,privacy) values($1,$2,$3,$4,$5::jsonb,$6::jsonb) on conflict(account_id) do update set language=excluded.language,appearance=excluded.appearance,compact_mode=excluded.compact_mode,notifications=excluded.notifications,privacy=excluded.privacy,updated_at=now() returning language,appearance,compact_mode,notifications,privacy,updated_at",[session.account_id,language,appearance,compactMode,notifications,privacy]);
+      return cors(json({ok:true,state:"SETTINGS_UPDATED",data:rows[0]}),request);
+    }
     if(request.method==="GET"&&url.pathname==="/api/account"){
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const sessions=await query(env,"select session_id,state,created_at,last_seen_at,expires_at,revoked_at from legakeys.sessions where account_id=$1 order by created_at desc",[r.account_id]),credentials=await query(env,"select credential_id,credential_type,state,verification_state,subject_reference,expires_at,revoked_at,created_at from legakeys.credentials where account_id=$1 order by created_at",[r.account_id]);return cors(json({ok:true,state:"AUTHENTICATED",data:{account:publicAccount(r),sessions,credentials}}),request);
