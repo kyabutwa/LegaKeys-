@@ -1074,3 +1074,11 @@ h1,h2,h3,h4,h5,h6,
 .join-modal{width:min(560px,100%);max-height:calc(100dvh - clamp(24px,10vh,96px));overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:clamp(22px,5vw,34px);padding-bottom:max(26px,env(safe-area-inset-bottom));}
 .join-modal .primary.full{position:sticky;bottom:0;z-index:2;margin-top:14px;box-shadow:0 -10px 18px rgba(255,255,255,.92);}
 @media(max-width:640px){.overlay{padding:10px 10px max(18px,env(safe-area-inset-bottom));}.join-modal{border-radius:18px;max-height:calc(100dvh - 20px);padding:22px 18px max(24px,env(safe-area-inset-bottom));}.join-modal h2{font-size:21px}.join-modal p{line-height:1.55;margin-bottom:16px}.join-modal label{margin-top:11px}.join-modal input,.join-modal select{min-height:44px}.join-modal .primary.full{min-height:48px}.modal-close{position:sticky;top:0;z-index:3;margin-left:auto;display:grid;}}
+
+/* Account control center: scoped navigation and responsive enterprise-grade settings surface */
+.account-settings-nav{position:sticky;top:0;z-index:4;display:flex;gap:7px;overflow-x:auto;padding:10px 0 12px;margin:0 0 4px;background:rgba(7,17,31,.94);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);scrollbar-width:none}
+.account-settings-nav::-webkit-scrollbar{display:none}
+.account-settings-nav button{border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.045);color:#b8c5d4;border-radius:999px;padding:8px 12px;white-space:nowrap;font:inherit;font-size:12px;font-weight:750;cursor:pointer}
+.account-settings-nav button:hover,.account-settings-nav button:focus-visible{border-color:rgba(88,214,141,.42);color:#fff;outline:none}
+.account-setting-group[id],.settings-danger[id]{scroll-margin-top:74px}
+@media(max-width:640px){.account-settings-nav{margin-left:-2px;margin-right:-2px;padding-left:2px;padding-right:2px}.account-settings-nav button{font-size:11px;padding:8px 11px}.account-center-modal{padding-bottom:max(22px,env(safe-area-inset-bottom))}}
