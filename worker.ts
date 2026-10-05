@@ -27,6 +27,11 @@ function sessionCookie(v:string,maxAge=SESSION_TTL_SECONDS){return SESSION_COOKI
 async function canonicalSession(env:Env,request:Request):Promise<Row|null>{const raw=cookieValue(request,SESSION_COOKIE);if(!raw)return null;try{const rows=await query(env,`select s.session_id,s.account_id,s.expires_at,a.state as account_state,a.identity_id,i.entity_id,i.identity_type,i.verification_state,p.person_id,p.legal_name,p.display_name,asx.profile_photo_data,asx.profile_photo_mime,pt.participant_id,pt.state as participant_state,pa.participation_id,pa.context_entity_id,pa.state as participation_state,pa.scope from legakeys.sessions s join legakeys.accounts a on a.account_id=s.account_id join legakeys.identities i on i.identity_id=a.identity_id left join legakeys.persons p on p.entity_id=i.entity_id left join legakeys.account_settings asx on asx.account_id=a.account_id left join legakeys.participants pt on pt.identity_id=i.identity_id and pt.state='ACTIVE' left join legakeys.participations pa on pa.participation_id=pt.participation_id where s.session_secret_reference=$1 and s.state='ACTIVE' and s.expires_at>now() and s.last_seen_at>now()-interval '24 hours' and a.state='ACTIVE' order by pa.created_at desc nulls last limit 1`,[await sha256(raw)]);return rows[0]??null}catch{return null}}
 function publicAccount(r:Row){return {account_id:r.account_id,account_state:r.account_state,identity_id:r.identity_id,identity_type:r.identity_type,verification_state:r.verification_state,person:{person_id:r.person_id,legal_name:r.legal_name,display_name:r.display_name},photo:{data:r.profile_photo_data||null,mime:r.profile_photo_mime||null},participant:{participant_id:r.participant_id,state:r.participant_state},participation:{participation_id:r.participation_id,context_entity_id:r.context_entity_id,state:r.participation_state,scope:r.scope}}}
 
+async function communityOperatorScope(env:Env,session:Row,communityId:string,workspaceId=""){
+  const rows=await query(env,`select cp.community_entity_id,cp.workspace_id,cp.operator_entity_id,cp.operator_type from legakeys.community_profiles cp join legakeys.workspaces w on w.id=cp.workspace_id and w.lifecycle='ACTIVE' where cp.community_entity_id=$1 and ($2='' or cp.workspace_id=$2) and ((cp.settings->>'created_by_account')=$3 or (cp.operator_entity_id=$4::uuid and cp.operator_type=$5) or exists (select 1 from legakeys.workspace_memberships wm where wm.workspace_id=cp.workspace_id and wm.participant_ref=$6 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_OPERATOR','COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))) limit 1`,[communityId,workspaceId,String(session.account_id??""),String(session.entity_id??""),String(session.identity_type??""),String(session.participant_id??"")]);
+  return rows[0]??null;
+}
+
 function json(data: unknown, status = 200): Response {
   return Response.json(data, { status, headers: { "cache-control": "no-store" } });
 }
@@ -474,6 +479,8 @@ async function api(request: Request, env: Env): Promise<Response> {
       const identityId = String(session.identity_id ?? "");
       const identityEntityId = String(session.entity_id ?? "");
       const identityType = String(session.identity_type ?? "");
+      const actorEntityId = String(session.entity_id ?? "");
+      const selectedCommunityId = String(url.searchParams.get("community_entity_id") ?? "").trim();
       const rows = await query(env, `
         select cp.community_entity_id,cp.workspace_id,cp.operator_entity_id,cp.operator_type,cp.onboarding_state,cp.plan_code,cp.plan_version,cp.plan_state,
                w.name,w.purpose,w.lifecycle,w.version,
@@ -487,13 +494,13 @@ async function api(request: Request, env: Env): Promise<Response> {
         from legakeys.community_profiles cp
         join legakeys.workspaces w on w.id=cp.workspace_id
         left join legakeys.workspace_memberships wm on wm.workspace_id=w.id and wm.participant_ref=$1 and wm.status='ACTIVE'
-        where (
-          (wm.id is not null and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))
-          or (cp.operator_entity_id=$3::uuid and cp.operator_type=$2 and $3<>'')
+        where ($5='' or cp.community_entity_id=$5::uuid) and (
+          (wm.id is not null and wm.role in ('COMMUNITY_OPERATOR','COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))
+          or (cp.operator_entity_id=$3::uuid and cp.operator_type=$2)
           or (cp.settings->>'created_by_account')=$4
         )
         order by cp.updated_at desc
-      `,[participantId,identityType,identityEntityId,String(session.account_id ?? "")]);
+      `,[participantId,identityType,identityEntityId,String(session.account_id ?? ""),selectedCommunityId]);
       const communities=[];
       for(const row of rows){
         const people=await query(env,`select cr.id,cr.participant_ref,cr.relationship_type,cr.state,cr.scope_ref,cr.effective_from,cr.effective_until from legakeys.community_roster cr where cr.community_entity_id=$1 order by cr.updated_at desc limit 50`,[row.community_entity_id]);
@@ -504,7 +511,7 @@ async function api(request: Request, env: Env): Promise<Response> {
         const accessPoints=await query(env,`select cap.id,cap.access_point_id,cap.name,cap.scope,cap.state,cap.controller_provider_id,cap.controller_reference,cap.notes,ap.access_point_type,ap.lifecycle_state,ap.truth_state,ap.operational_state from legakeys.community_access_points cap join legakeys.access_points ap on ap.access_point_id=cap.access_point_id where cap.community_entity_id=$1 order by cap.updated_at desc limit 50`,[row.community_entity_id]);
         communities.push({community:{entity_id:row.community_entity_id,workspace_id:row.workspace_id,name:row.name,purpose:row.purpose,operator_entity_id:row.operator_entity_id,operator_type:row.operator_type,onboarding_state:row.onboarding_state,plan_code:row.plan_code,plan_version:row.plan_version,plan_state:row.plan_state,lifecycle:row.lifecycle,version:row.version},metrics:{people:Number(row.people_count),residents:Number(row.resident_count),workers:Number(row.worker_count),providers:Number(row.provider_count),open_work:Number(row.open_work_count),plans:Number(row.plan_count),configured_services:Number(row.configured_service_count)},people,providers,services,plans,work,accessPoints});
       }
-      return cors(json({ok:true,state:"VERIFIED",data:communities,truth:{source:"canonical community operating tables",operator_scope:"bound to the authenticated community/organization identity entity or explicit participant operator membership",service_control:"LegaKeys",provider_state:"declared/verified separately",authorization:"operational membership never substitutes for consequential authorization"}}),request);
+      return cors(json({ok:true,state:"VERIFIED",selected_community_entity_id:selectedCommunityId||communities[0]?.community?.entity_id||null,data:communities,truth:{source:"canonical community operating tables",operator_scope:"authenticated community/organization identity, creator account, or explicit participant operator delegation",membership:"does not imply operating authority",service_control:"LegaKeys",provider_state:"declared/verified separately",authorization:"operational membership never substitutes for consequential authorization"}}),request);
     }
 
     if (request.method === "POST" && url.pathname === "/api/community/roster") {
@@ -512,8 +519,8 @@ async function api(request: Request, env: Env): Promise<Response> {
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),participantRef=String(b?.participantRef??""),relationship=String(b?.relationshipType??"MEMBER").toUpperCase();
       if(!communityId||!participantRef)return cors(json({ok:false,code:"COMMUNITY_ROSTER_INPUT_REQUIRED"},400),request);
       const allowed=["RESIDENT","OWNER","TENANT","WORKER","MANAGER","VISITOR","MEMBER","GUEST","STUDENT","CONTRACTOR","OTHER"]; if(!allowed.includes(relationship))return cors(json({ok:false,code:"INVALID_RELATIONSHIP_TYPE"},400),request);
-      const operator=await query(env,`select 1 from legakeys.community_profiles cp left join legakeys.workspace_memberships wm on wm.workspace_id=cp.workspace_id and wm.participant_ref=$2 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER') where cp.community_entity_id=$1 and (wm.id is not null or ($3='COMMUNITY' and cp.community_entity_id=$4::uuid)) limit 1`,[communityId,session.participant_id,session.identity_type,session.identity_id]);
-      if(!operator.length)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const operator=await communityOperatorScope(env,session,communityId);
+      if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
       const id=crypto.randomUUID(); await query(env,`insert into legakeys.community_roster(id,community_entity_id,participant_ref,relationship_type,state,scope_ref,source_reference) values($1,$2,$3,$4,'ACTIVE',$2,'community-operator') on conflict do nothing`,[id,communityId,participantRef,relationship]);
       return cors(json({ok:true,state:"RECORDED",id,truth:{relationship:"recorded",authorization:"not implied"}}),request);
     }
@@ -521,8 +528,8 @@ async function api(request: Request, env: Env): Promise<Response> {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),providerName=String(b?.providerName??"").trim(),providerParticipantRef=String(b?.providerParticipantRef??"").trim()||null;
       if(!communityId||providerName.length<2)return cors(json({ok:false,code:"PROVIDER_INPUT_REQUIRED"},400),request);
-      const operator=await query(env,`select 1 from legakeys.community_profiles cp left join legakeys.workspace_memberships wm on wm.workspace_id=cp.workspace_id and wm.participant_ref=$2 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER') where cp.community_entity_id=$1 and (wm.id is not null or ($3='COMMUNITY' and cp.community_entity_id=$4::uuid)) limit 1`,[communityId,session.participant_id,session.identity_type,session.identity_id]);
-      if(!operator.length)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const operator=await communityOperatorScope(env,session,communityId);
+      if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
       const entityId=crypto.randomUUID(),identityId=crypto.randomUUID(),linkId=crypto.randomUUID();
       await query(env,`with e as(insert into legakeys.entities(entity_id,entity_type,canonical_name,display_name,lifecycle_state) values($1,'ORGANIZATION',$2,$2,'ACTIVE') returning entity_id),i as(insert into legakeys.identities(identity_id,entity_id,identity_type,state,verification_state) select $3,entity_id,'ORGANIZATION','ACTIVE','DECLARED' from e) insert into legakeys.community_provider_links(id,community_entity_id,provider_entity_id,provider_participant_ref,verification_state,state,service_scope) values($4,$5,$1,$6,'PENDING','PROPOSED',$7::jsonb)`,[entityId,providerName,identityId,linkId,communityId,providerParticipantRef,JSON.stringify(b?.serviceScope||{})]);
       return cors(json({ok:true,state:"PROPOSED",provider_entity_id:entityId,provider_identity_id:identityId,link_id:linkId,truth:{provider:"DECLARED",verification:"PENDING",authorization:"not implied"}}),request);
@@ -534,8 +541,8 @@ async function api(request: Request, env: Env): Promise<Response> {
       if(!communityId||name.length<2)return cors(json({ok:false,code:"ACCESS_POINT_INPUT_REQUIRED"},400),request);
       const allowed=["DOOR","GATE","TURNSTILE","ELEVATOR","BARRIER","FACILITY_ENTRY","BUILDING_ENTRY","UNIT_ENTRY","COMMON_AREA_ENTRY","OTHER"];
       if(!allowed.includes(type))return cors(json({ok:false,code:"INVALID_ACCESS_POINT_TYPE"},400),request);
-      const operator=await query(env,`select 1 from legakeys.community_profiles cp left join legakeys.workspace_memberships wm on wm.workspace_id=cp.workspace_id and wm.participant_ref=$2 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER') where cp.community_entity_id=$1 and (wm.id is not null or ($3='COMMUNITY' and cp.community_entity_id=$4::uuid)) limit 1`,[communityId,session.participant_id,session.identity_type,session.identity_id]);
-      if(!operator.length)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const operator=await communityOperatorScope(env,session,communityId);
+      if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
       const entityId=crypto.randomUUID(),accessPointId=crypto.randomUUID(),linkId=crypto.randomUUID();
       await query(env,`insert into legakeys.entities(entity_id,entity_type,canonical_name,display_name,lifecycle_state) values($1,'ACCESS_POINT',$2,$2,'ACTIVE')`,[entityId,name]);
       await query(env,`insert into legakeys.access_points(access_point_id,entity_id,access_point_type,controller_provider_id,controller_reference,lifecycle_state,truth_state,operational_state,provenance_reference) values($1,$2,$3,$4,$5,'ACTIVE','DECLARED','UNKNOWN','community-operator')`,[accessPointId,entityId,type,b?.controllerProviderId||null,b?.controllerReference||null]);
@@ -546,8 +553,8 @@ async function api(request: Request, env: Env): Promise<Response> {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),id=String(b?.id??""),state=String(b?.state??"").toUpperCase();
       if(!communityId||!id||!["ACTIVE","SUSPENDED","ENDED","REVOKED"].includes(state))return cors(json({ok:false,code:"ROSTER_STATUS_INPUT_INVALID"},400),request);
-      const operator=await query(env,`select 1 from legakeys.community_profiles cp left join legakeys.workspace_memberships wm on wm.workspace_id=cp.workspace_id and wm.participant_ref=$2 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER') where cp.community_entity_id=$1 and (wm.id is not null or ($3='COMMUNITY' and cp.community_entity_id=$4::uuid)) limit 1`,[communityId,session.participant_id,session.identity_type,session.identity_id]);
-      if(!operator.length)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const operator=await communityOperatorScope(env,session,communityId);
+      if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
       await query(env,`update legakeys.community_roster set state=$3,updated_at=now() where id=$1 and community_entity_id=$2`,[id,communityId,state]);
       return cors(json({ok:true,state:"UPDATED",truth:{membership:"updated",authority:"not implied"}}),request);
     }
@@ -556,8 +563,8 @@ async function api(request: Request, env: Env): Promise<Response> {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),id=String(b?.id??""),state=String(b?.state??"").toUpperCase(),verification=String(b?.verificationState??"").toUpperCase();
       if(!communityId||!id||!["PROPOSED","ACTIVE","SUSPENDED","ENDED"].includes(state)||!["PENDING","VERIFIED","REJECTED","EXPIRED"].includes(verification))return cors(json({ok:false,code:"PROVIDER_STATUS_INPUT_INVALID"},400),request);
-      const operator=await query(env,`select 1 from legakeys.community_profiles cp left join legakeys.workspace_memberships wm on wm.workspace_id=cp.workspace_id and wm.participant_ref=$2 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER') where cp.community_entity_id=$1 and (wm.id is not null or ($3='COMMUNITY' and cp.community_entity_id=$4::uuid)) limit 1`,[communityId,session.participant_id,session.identity_type,session.identity_id]);
-      if(!operator.length)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const operator=await communityOperatorScope(env,session,communityId);
+      if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
       await query(env,`update legakeys.community_provider_links set state=$3,verification_state=$4,updated_at=now() where id=$1 and community_entity_id=$2`,[id,communityId,state,verification]);
       return cors(json({ok:true,state:"UPDATED",truth:{provider:"declared",verification:verification}}),request);
     }
@@ -566,8 +573,8 @@ async function api(request: Request, env: Env): Promise<Response> {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),id=String(b?.id??""),state=String(b?.state??"").toUpperCase();
       if(!communityId||!id||!["DECLARED","ACTIVE","SUSPENDED","RETIRED"].includes(state))return cors(json({ok:false,code:"ACCESS_POINT_STATUS_INPUT_INVALID"},400),request);
-      const operator=await query(env,`select 1 from legakeys.community_profiles cp left join legakeys.workspace_memberships wm on wm.workspace_id=cp.workspace_id and wm.participant_ref=$2 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER') where cp.community_entity_id=$1 and (wm.id is not null or ($3='COMMUNITY' and cp.community_entity_id=$4::uuid)) limit 1`,[communityId,session.participant_id,session.identity_type,session.identity_id]);
-      if(!operator.length)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const operator=await communityOperatorScope(env,session,communityId);
+      if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
       await query(env,`update legakeys.community_access_points set state=$3,updated_at=now() where id=$1 and community_entity_id=$2`,[id,communityId,state]);
       return cors(json({ok:true,state:"UPDATED",truth:{access_point:"declared",provider:"not invented"}}),request);
     }
@@ -576,9 +583,9 @@ async function api(request: Request, env: Env): Promise<Response> {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),name=String(b?.name??"").trim(),objective=String(b?.objective??"").trim();
       if(!communityId||name.length<2||objective.length<2)return cors(json({ok:false,code:"PLAN_INPUT_REQUIRED"},400),request);
-      const operator=await query(env,`select 1 from legakeys.community_profiles cp left join legakeys.workspace_memberships wm on wm.workspace_id=cp.workspace_id and wm.participant_ref=$2 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER') where cp.community_entity_id=$1 and (wm.id is not null or ($3='COMMUNITY' and cp.community_entity_id=$4::uuid)) limit 1`,[communityId,session.participant_id,session.identity_type,session.identity_id]);
-      if(!operator.length)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
-      const id=crypto.randomUUID(); await query(env,`insert into legakeys.community_plans(id,community_entity_id,name,objective,horizon_start,horizon_end,state,budget_model,measures,assumptions,risks,created_by_participant_ref) values($1,$2,$3,$4,$5::date,$6::date,'DRAFT',$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11)`,[id,communityId,name,objective,b?.horizonStart||null,b?.horizonEnd||null,JSON.stringify(b?.budgetModel||{}),JSON.stringify(b?.measures||[]),JSON.stringify(b?.assumptions||[]),JSON.stringify(b?.risks||[]),session.participant_id]);
+      const operator=await communityOperatorScope(env,session,communityId);
+      if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const id=crypto.randomUUID(); await query(env,`insert into legakeys.community_plans(id,community_entity_id,name,objective,horizon_start,horizon_end,state,budget_model,measures,assumptions,risks,created_by_participant_ref,created_by_actor_entity_id) values($1,$2,$3,$4,$5::date,$6::date,'DRAFT',$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12)`,[id,communityId,name,objective,b?.horizonStart||null,b?.horizonEnd||null,JSON.stringify(b?.budgetModel||{}),JSON.stringify(b?.measures||[]),JSON.stringify(b?.assumptions||[]),JSON.stringify(b?.risks||[]),session.participant_id||null,actorEntityId]);
       return cors(json({ok:true,state:"DRAFT",plan_id:id,truth:{plan:"recorded",authorization:"required before consequential execution"}}),request);
     }
     if (request.method === "POST" && url.pathname === "/api/community/work-order") {
@@ -586,9 +593,9 @@ async function api(request: Request, env: Env): Promise<Response> {
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),workspaceId=String(b?.workspaceId??""),title=String(b?.title??"").trim(),description=String(b?.description??"").trim(),priority=String(b?.priority??"NORMAL").toUpperCase();
       if(!communityId||!workspaceId||title.length<2)return cors(json({ok:false,code:"WORK_ORDER_INPUT_REQUIRED"},400),request);
       if(!["LOW","NORMAL","HIGH","URGENT"].includes(priority))return cors(json({ok:false,code:"INVALID_PRIORITY"},400),request);
-      const operator=await query(env,`select 1 from legakeys.community_profiles cp left join legakeys.workspace_memberships wm on wm.workspace_id=cp.workspace_id and wm.participant_ref=$3 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER') where cp.community_entity_id=$1 and cp.workspace_id=$2 and (wm.id is not null or ($4='COMMUNITY' and cp.community_entity_id=$5::uuid)) limit 1`,[communityId,workspaceId,session.participant_id,session.identity_type,session.identity_id]);
-      if(!operator.length)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
-      const id=crypto.randomUUID(); await query(env,`insert into legakeys.community_work_orders(id,community_entity_id,workspace_id,title,description,priority,state,target_ref,created_by_participant_ref) values($1,$2,$3,$4,$5,$6,'OPEN',$7,$8)`,[id,communityId,workspaceId,title,description,priority,b?.targetRef||null,session.participant_id]);
+      const operator=await communityOperatorScope(env,session,communityId,workspaceId);
+      if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      const id=crypto.randomUUID(); await query(env,`insert into legakeys.community_work_orders(id,community_entity_id,workspace_id,title,description,priority,state,target_ref,created_by_participant_ref,created_by_actor_entity_id) values($1,$2,$3,$4,$5,$6,'OPEN',$7,$8,$9)`,[id,communityId,workspaceId,title,description,priority,b?.targetRef||null,session.participant_id||null,actorEntityId]);
       return cors(json({ok:true,state:"OPEN",work_order_id:id,truth:{work_order:"recorded",execution:"not started",authorization:"required before consequential execution"}}),request);
     }
     if (request.method === "GET" && url.pathname === "/api/workspace-center") {
