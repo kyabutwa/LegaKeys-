@@ -445,3 +445,47 @@ html[data-theme="navy"]{
 .appearance-governance label{font-size:11px;font-weight:800;color:var(--theme-text)}
 .appearance-governance input[type="range"]{width:100%;accent-color:var(--theme-accent)}
 .readability-contract{font-size:10px;line-height:1.5;color:var(--theme-muted)}
+
+/* Structured navigation: persistent back stack + visible hierarchy. */
+.nav-back{
+  height:38px;display:inline-flex;align-items:center;gap:2px;
+  border:1px solid var(--theme-line);border-radius:12px;
+  background:var(--theme-soft-line);color:var(--theme-bar-text);
+  padding:0 10px 0 6px;font-size:10px;font-weight:800;
+  white-space:nowrap;transition:background .18s ease,transform .18s ease;
+}
+.nav-back:hover{background:var(--theme-accent-soft);transform:translateX(-1px)}
+.nav-back svg{color:var(--theme-accent)}
+.breadcrumb-nav{
+  display:flex;align-items:center;gap:6px;min-height:22px;
+  margin-bottom:8px;overflow:auto;scrollbar-width:none;
+}
+.breadcrumb-nav::-webkit-scrollbar{display:none}
+.breadcrumb-nav button{
+  border:0;background:transparent;padding:3px 5px;border-radius:7px;
+  color:var(--theme-muted);font-size:10px;font-weight:750;white-space:nowrap;
+}
+.breadcrumb-nav button:hover{background:var(--theme-soft-line);color:var(--theme-text)}
+.breadcrumb-nav button.current{color:var(--theme-text);font-weight:850}
+.breadcrumb-nav>span{color:var(--theme-muted);font-size:10px;opacity:.65}
+.hero-title-row{display:flex;align-items:center;gap:10px}
+.hero-back{
+  display:inline-flex;align-items:center;gap:4px;border:1px solid var(--theme-line);
+  background:var(--theme-surface);color:var(--theme-text);border-radius:10px;
+  padding:6px 9px;font-size:10px;font-weight:800;box-shadow:0 5px 14px rgba(0,0,0,.08);
+}
+.hero-back:hover{border-color:rgba(88,214,141,.45);color:var(--theme-accent)}
+@media(max-width:800px){
+  .topbar .nav-back{max-width:105px;overflow:hidden}
+  .nav-back span{max-width:66px;overflow:hidden;text-overflow:ellipsis}
+  .breadcrumb-nav{margin-bottom:7px}
+  .hero-title-row{gap:7px;flex-wrap:wrap}
+  .hero-back{order:2}
+  .hero-title-row .eyebrow{order:1}
+}
+@media(max-width:520px){
+  .nav-back span{display:none}
+  .nav-back{width:36px;justify-content:center;padding:0}
+  .hero-back span{display:inline}
+  .breadcrumb-nav button{font-size:9px}
+}
