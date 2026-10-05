@@ -625,13 +625,11 @@ async function api(request: Request, env: Env): Promise<Response> {
     const x = e as { code?: unknown; name?: unknown; message?: unknown };
     const rawCode = x && x.code != null ? String(x.code) : "";
     const code = /^[A-Z][A-Z0-9_]*$/.test(rawCode) ? rawCode : "DATABASE_ERROR";
-    const message = String(x?.message ?? "").slice(0, 240);
-    console.error("LegaKeys runtime error", { name: String(x?.name ?? ""), code: rawCode, message });
+    console.error("LegaKeys runtime error", { name: String(x?.name ?? ""), code: rawCode });
     return cors(json({
       ok: false,
       state: code === "DATABASE_NOT_CONFIGURED" ? "NOT_CONFIGURED" : "UNAVAILABLE",
-      code,
-      ...(message ? { message } : {})
+      code
     }, code === "DATABASE_NOT_CONFIGURED" ? 503 : 502), request);
   }
 }
