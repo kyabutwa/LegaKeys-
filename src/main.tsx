@@ -50,15 +50,44 @@ function Landing({onEnter}:{onEnter:()=>void}){
 
 function App(){
  const[preview,setPreview]=useState(true);
+ const sectionFromLocation=():Section=>{const raw=location.hash.replace(/^#/,"") as Section;return (["Home","Places","Services","Access","Payments","Activity","Workspaces","Identity","Intelligence","World","Execution"] as Section[]).includes(raw)?raw:"Home"};
+ const initialSection=sectionFromLocation();
  type Theme="dark"|"light"|"navy";
  const[theme,setTheme]=useState<Theme>(()=>{const saved=localStorage.getItem("legakeys-theme");return saved==="dark"||saved==="light"||saved==="navy"?saved:"navy"});
  useEffect(()=>{document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme==="light"?"light":"dark";localStorage.setItem("legakeys-theme",theme)},[theme]);
- const[section,setSection]=useState<Section>(initialSection),[menu,setMenu]=useState(false),[more,setMore]=useState(false),[search,setSearch]=useState(false),[assistant,setAssistant]=useState(false),[identity,setIdentity]=useState(false),[context,setContext]=useState(false);\n const[navStack,setNavStack]=useState<Section[]>([initialSection]);\n const canGoBack=navStack.length>1;\n const parentSection=canGoBack?navStack[navStack.length-2]:null;\n useEffect(()=>{\n  const current=history.state?.legakeysSection as Section|undefined;\n  if(!current) history.replaceState({legakeysSection:initialSection,legakeysStack:[initialSection]},"",location.pathname+location.search+(initialSection==="Home"?"":"#"+initialSection.toLowerCase()));\n  const onPop=()=>{\n   const state=history.state;\n   const next=(state?.legakeysSection as Section|undefined)||"Home";\n   const stack=Array.isArray(state?.legakeysStack)&&state.legakeysStack.length?state.legakeysStack as Section[]:["Home"];\n   setSection(next);setNavStack(stack);setMenu(false);setMore(false);setSearch(false);setContext(false);\n  };\n  const onKey=(event:KeyboardEvent)=>{if((event.altKey&&event.key==="ArrowLeft")||((event.metaKey||event.ctrlKey)&&event.key==="[")){if(canGoBack){event.preventDefault();history.back()}}};\n  window.addEventListener("popstate",onPop);\n  window.addEventListener("keydown",onKey);\n  return()=>{window.removeEventListener("popstate",onPop);window.removeEventListener("keydown",onKey)};\n },[]);
+ const[section,setSection]=useState<Section>(initialSection),[menu,setMenu]=useState(false),[more,setMore]=useState(false),[search,setSearch]=useState(false),[assistant,setAssistant]=useState(false),[identity,setIdentity]=useState(false),[context,setContext]=useState(false);
+ const[navStack,setNavStack]=useState<Section[]>([initialSection]);
+ const canGoBack=navStack.length>1;
+ const parentSection=canGoBack?navStack[navStack.length-2]:null;
+ useEffect(()=>{
+  const current=history.state?.legakeysSection as Section|undefined;
+  if(!current) history.replaceState({legakeysSection:initialSection,legakeysStack:[initialSection]},"",location.pathname+location.search+(initialSection==="Home"?"":"#"+initialSection.toLowerCase()));
+  const onPop=()=>{
+   const state=history.state;
+   const next=(state?.legakeysSection as Section|undefined)||"Home";
+   const stack=Array.isArray(state?.legakeysStack)&&state.legakeysStack.length?state.legakeysStack as Section[]:["Home"];
+   setSection(next);setNavStack(stack);setMenu(false);setMore(false);setSearch(false);setContext(false);
+  };
+  const onKey=(event:KeyboardEvent)=>{if((event.altKey&&event.key==="ArrowLeft")||((event.metaKey||event.ctrlKey)&&event.key==="[")){if(canGoBack){event.preventDefault();history.back()}}};
+  window.addEventListener("popstate",onPop);
+  window.addEventListener("keydown",onKey);
+  return()=>{window.removeEventListener("popstate",onPop);window.removeEventListener("keydown",onKey)};
+ },[]);
  const[liveServices,setLiveServices]=useState<any[]>([]),[dbState,setDbState]=useState("UNKNOWN");
  useEffect(()=>{fetch("/api/health",{credentials:"include"}).then(r=>r.json()).then(x=>setDbState(x.state??"UNKNOWN")).catch(()=>setDbState("UNAVAILABLE"));fetch("/api/services",{credentials:"include"}).then(r=>r.ok?r.json():null).then(x=>setLiveServices(x?.data??[])).catch(()=>setLiveServices([]));},[]);
  if(preview)return <Landing onEnter={()=>setPreview(false)}/>;
  const subtitle:Record<Section,string>={Home:"Your identity, places, services and decisions — in one governed ecosystem.",Places:"Understand where you belong and what is connected.",Services:"Declared capabilities, available through governed access.",Access:"Entry, visitors and permissions are evaluated in context.",Payments:"Payment intent, authorization, execution and reconciliation.",Activity:"A traceable record of what happened.",Workspaces:"Operate in the context you are authorized to use.",Identity:"Your identity, participation and trust state.",Intelligence:"GENESIS + Constantyna: intelligence without self-granted authority.",World:"Places, physical entities, relationships and digital-twin state.",Execution:"Intent → Proposal → Authorization → Action → Event → Evidence."};
- const go=(s:Section)=>{\n  if(s===section){setMenu(false);return}\n  const next=[...navStack,s];\n  setSection(s);setNavStack(next);setMenu(false);setMore(false);\n  history.pushState({legakeysSection:s,legakeysStack:next},"",location.pathname+location.search+"#"+s.toLowerCase());\n };\n const goBack=()=>{if(canGoBack)history.back()};\n const jumpTo=(index:number)=>{\n  const steps=navStack.length-1-index;\n  if(steps>0)history.go(-steps);\n };
+ const go=(s:Section)=>{
+  if(s===section){setMenu(false);return}
+  const next=[...navStack,s];
+  setSection(s);setNavStack(next);setMenu(false);setMore(false);
+  history.pushState({legakeysSection:s,legakeysStack:next},"",location.pathname+location.search+"#"+s.toLowerCase());
+ };
+ const goBack=()=>{if(canGoBack)history.back()};
+ const jumpTo=(index:number)=>{
+  const steps=navStack.length-1-index;
+  if(steps>0)history.go(-steps);
+ };
  return <div className="app">
   <header className="topbar"><button className="mobile-menu icon" onClick={()=>setMenu(!menu)}><Menu size={20}/></button>{canGoBack&&<button className="nav-back" onClick={goBack} aria-label={`Back to ${parentSection}`} title={`Back to ${parentSection}`}><ChevronLeft size={18}/><span>{parentSection}</span></button>}<Logo/><div className="context-wrap"><button className="context" onClick={()=>setContext(!context)}><span className="context-icon"><MapPin size={15}/></span><span><b>Current context</b><small>Choose a context</small></span><ChevronDown size={15}/></button>{context&&<div className="popover context-pop"><b>Context</b><p>Context changes what LegaKeys can show. It never grants authority.</p><button><UserRound size={15}/>Personal <small>Declared</small></button><button><Building2 size={15}/>Community <small>Not connected</small></button></div>}</div><div className="top-actions"><button className="search" onClick={()=>setSearch(true)}><Search size={17}/><span>Search</span><kbd>⌘ K</kbd></button><button className="icon" onClick={()=>setAssistant(true)}><Sparkles size={18}/></button><button className="icon notification"><Bell size={18}/><i/></button><button className="identity-chip" onClick={()=>setIdentity(true)}><span className="avatar">K</span><ChevronDown size={13}/></button><button className="icon" onClick={()=>setMore(!more)}><MoreHorizontal size={19}/></button></div>{more&&<div className="popover more-pop"><div className="theme-menu"><b>Appearance</b><small>Choose how LegaKeys looks everywhere.</small><div className="theme-options"><button className={theme==="dark"?"selected":""} onClick={()=>setTheme("dark")}><Moon size={15}/><span>Dark</span></button><button className={theme==="light"?"selected":""} onClick={()=>setTheme("light")}><Sun size={15}/><span>White</span></button><button className={theme==="navy"?"selected":""} onClick={()=>setTheme("navy")}><Palette size={15}/><span>Navy</span></button></div></div><button><Settings2 size={16}/>Settings</button><button><CircleHelp size={16}/>Help & guidance</button><button><ShieldCheck size={16}/>Security & sessions</button></div>}</header>
   <aside className={"sidebar "+(menu?"open":"")}><div className="sidebar-scroll"><div className="nav-section"><label>Navigate</label>{nav.map(([name,Icon])=><button key={name} className={"nav-item "+(section===name?"active":"")} onClick={()=>go(name)}><Icon size={18}/><span>{name}</span></button>)}</div><div className="nav-section"><label>Deep LegaKeys</label>{deep.map(([name,desc,Icon])=><button key={name as string} className={"nav-item "+(section===name?"active":"")} onClick={()=>go(name as Section)}><Icon size={18}/><span>{name as string}</span></button>)}</div><div className="trust-card"><ShieldCheck size={17}/><div><b>Governed by design</b><small>Authorization remains the execution boundary.</small></div></div></div></aside>
