@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS legakeys.authorization_conditions (
 
 CREATE TABLE IF NOT EXISTS legakeys.authorization_reasons (
   reason_id UUID PRIMARY KEY,
-  decision_id UUID NOT NULL REFERENCES legakeys.authorization_decisions(decision_id),
+  decision_id UUID,
   reason_code TEXT NOT NULL,
   reason_type TEXT NOT NULL CHECK (
     reason_type IN ('MATCH','MISSING','FAILED','CONFLICT','EXPIRED','REVOKED','STEP_UP','SYSTEM')
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS legakeys.authorization_reasons (
 ALTER TABLE legakeys.authorization_reasons
   ADD COLUMN IF NOT EXISTS decision_id UUID;
 
-DO $
+DO $legakeys_auth_reconcile$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
@@ -90,7 +90,8 @@ BEGIN
       REFERENCES legakeys.authorization_decisions(decision_id)
       NOT VALID;
   END IF;
-END $;
+END
+$legakeys_auth_reconcile$;
 
 CREATE TABLE IF NOT EXISTS legakeys.authorization_evidence (
   evidence_id UUID PRIMARY KEY,
