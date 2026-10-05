@@ -1,4 +1,6 @@
 import React,{useEffect,useState}from"react";
+import heroAsset from "../IMG_1581.jpeg";
+import emblemFallback from "../IMG_1593.jpeg";
 import{createRoot}from"react-dom/client";
 import{Activity,ArrowUpRight,Bell,ChevronDown,CircleHelp,Clock3,Home,KeyRound,Layers3,MapPin,Menu,MoreHorizontal,Search,Settings2,ShieldCheck,Sparkles,UserRound,WalletCards,Wrench,X,Building2,Users,BriefcaseBusiness,CheckCircle2,AlertCircle,Plus,Globe2,Brain,GitBranch,Zap,LockKeyhole,Compass,LogIn,UserPlus,Handshake}from"lucide-react";
 import"./styles.css";
