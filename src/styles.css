@@ -822,3 +822,17 @@ h1,h2,h3,h4,p,b,small,span,em,label{
   .splash-welcome span:first-child{font-size:27px}
   .splash-welcome span:last-child{font-size:14px;letter-spacing:.13em}
 }
+
+/* LegaKeys multilingual interface */
+.language-switcher{display:flex;align-items:center;gap:8px;min-width:0;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:12px;background:var(--theme-surface-2,#f5f7f9);color:var(--theme-text,var(--navy));box-sizing:border-box}
+.language-switcher svg{flex:none;color:var(--theme-accent,#58d68d)}
+.language-switcher select{width:100%;min-width:0;border:0;background:transparent;color:inherit;font:inherit;font-size:12px;font-weight:700;outline:0}
+.language-switcher.compact{width:auto;min-width:132px;border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.055);color:#fff;padding:8px 10px}
+.language-switcher.compact select{color:#fff}
+.language-switcher.compact option{color:#111}
+.language-menu{display:grid;gap:6px;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:6px 0}
+.language-menu>b{font-size:11px;color:var(--theme-text,var(--navy))}
+.language-menu>small{font-size:9px;line-height:1.4;color:var(--theme-muted,#7a8798)}
+.landing-language-slot{display:flex;justify-content:flex-end;align-items:center}
+html[dir="rtl"] .language-switcher{direction:rtl}
+@media(max-width:520px){.language-switcher.compact{min-width:118px}.language-switcher.compact select{font-size:10px}.landing-language-slot{width:auto}}
