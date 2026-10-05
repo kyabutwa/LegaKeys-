@@ -18,26 +18,31 @@ CREATE TABLE IF NOT EXISTS legakeys.runtime_resilience_policies (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-INSERT INTO legakeys.runtime_resilience_policies (
-  policy_version, domain, sequence, max_retries, base_delay_ms, max_delay_ms,
-  jitter_ratio, retryable_sqlstates, reset_after_success
-)
+DO $$
+DECLARE constraint_name text;
+BEGIN
+  SELECT c.conname INTO constraint_name
+  FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace
+  WHERE n.nspname='legakeys' AND t.relname='runtime_resilience_policies' AND c.contype='u'
+    AND pg_get_constraintdef(c.oid)='UNIQUE (policy_version)';
+  IF constraint_name IS NOT NULL THEN
+    EXECUTE format('ALTER TABLE legakeys.runtime_resilience_policies DROP CONSTRAINT %I', constraint_name);
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace
+    WHERE n.nspname='legakeys' AND t.relname='runtime_resilience_policies' AND c.contype='u'
+      AND pg_get_constraintdef(c.oid)='UNIQUE (policy_version, domain)'
+  ) THEN
+    ALTER TABLE legakeys.runtime_resilience_policies
+      ADD CONSTRAINT runtime_resilience_policies_policy_domain_key UNIQUE (policy_version, domain);
+  END IF;
+END $$;
+
+INSERT INTO legakeys.runtime_resilience_policies (policy_version,domain,sequence,max_retries,base_delay_ms,max_delay_ms,jitter_ratio,retryable_sqlstates,reset_after_success)
 VALUES
-  ('FIB-1.0','DATABASE',
-   '[0,1,1,2,3,5,8,13,21]'::jsonb,5,100,3000,0.25,
-   ARRAY['08000','08001','08003','08004','08006','08007','08009','40001','40P01','57P01'],true),
-  ('FIB-1.0-RUNTIME','RUNTIME',
-   '[0,1,1,2,3,5,8,13,21]'::jsonb,5,100,3000,0.25,
-   ARRAY['TIMEOUT','NETWORK','TEMPORARY_UNAVAILABLE','RATE_LIMITED'],true)
-ON CONFLICT (policy_version) DO UPDATE SET
-  sequence=EXCLUDED.sequence,
-  max_retries=EXCLUDED.max_retries,
-  base_delay_ms=EXCLUDED.base_delay_ms,
-  max_delay_ms=EXCLUDED.max_delay_ms,
-  jitter_ratio=EXCLUDED.jitter_ratio,
-  retryable_sqlstates=EXCLUDED.retryable_sqlstates,
-  reset_after_success=EXCLUDED.reset_after_success,
-  active=true;
+  ('FIB-1.0','DATABASE','[0,1,1,2,3,5,8,13,21]'::jsonb,5,100,3000,0.25,ARRAY['08000','08001','08003','08004','08006','08007','08009','40001','40P01','57P01'],true),
+  ('FIB-1.0-RUNTIME','RUNTIME','[0,1,1,2,3,5,8,13,21]'::jsonb,5,100,3000,0.25,ARRAY['TIMEOUT','NETWORK','TEMPORARY_UNAVAILABLE','RATE_LIMITED'],true)
+ON CONFLICT (policy_version,domain) DO UPDATE SET sequence=EXCLUDED.sequence,max_retries=EXCLUDED.max_retries,base_delay_ms=EXCLUDED.base_delay_ms,max_delay_ms=EXCLUDED.max_delay_ms,jitter_ratio=EXCLUDED.jitter_ratio,retryable_sqlstates=EXCLUDED.retryable_sqlstates,reset_after_success=EXCLUDED.reset_after_success,active=true;
 
 CREATE TABLE IF NOT EXISTS legakeys.runtime_integrity_snapshots (
   snapshot_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
