@@ -16,7 +16,7 @@
 
 ---
 
-# MASTER ARCHITECTURE
+# MASTER ARCHITECTURE\n\n## v1.1.0 foundation correction\n\nCommunity is a first-class WORLD entity with its own BeatIdentity and optional community account. It is independent from person participation. A person identity remains singular across communities; participation is contextual and explicit. Community creation therefore cannot be modeled as a participant-only capability.
 
 ```
 UNITED OF BALEGA
