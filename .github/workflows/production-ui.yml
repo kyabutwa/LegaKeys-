@@ -1,6 +1,7 @@
 name: LegaKeys Production UI
 # Canonical migration runner is intentionally rerunnable against the existing production database.
 # Identity FK guard corrected for PostgreSQL reruns.
+# Production gate: every main delivery must prove build, schema, runtime, HTTP onboarding and deployed contract.
 
 concurrency:
   group: legakeys-production-${{ github.ref }}
