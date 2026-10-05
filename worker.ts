@@ -23,7 +23,7 @@ async function derivePassword(password:string,salt:Uint8Array,iterations=100000)
 async function passwordRecord(password:string){const salt=crypto.getRandomValues(new Uint8Array(16));const iterations=100000;return "pbkdf2-sha256$v2$"+iterations+"$"+bytesToBase64Url(salt)+"$"+await derivePassword(password,salt,iterations)}
 async function verifyPassword(password:string,record:string){const p=record.split("$");if(p.length!==5||p[0]!=="pbkdf2-sha256"||p[1]!=="v1"&&p[1]!=="v2")return false;const n=Number(p[2]);if(!Number.isInteger(n)||n<100000||n>100000)return false;const a=new TextEncoder().encode(await derivePassword(password,base64UrlToBytes(p[3]),n)),b=new TextEncoder().encode(p[4]);if(a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)d|=a[i]^b[i];return d===0}
 function sessionCookie(v:string,maxAge=SESSION_TTL_SECONDS){return SESSION_COOKIE+"="+v+"; Max-Age="+maxAge+"; Path=/; Secure; HttpOnly; SameSite=Strict"}
-async function canonicalSession(env:Env,request:Request):Promise<Row|null>{const raw=cookieValue(request,SESSION_COOKIE);if(!raw)return null;try{const rows=await query(env,`select s.session_id,s.account_id,s.expires_at,a.state as account_state,a.identity_id,i.identity_type,i.verification_state,p.person_id,p.legal_name,p.display_name,asx.profile_photo_data,asx.profile_photo_mime,pt.participant_id,pt.state as participant_state,pa.participation_id,pa.context_entity_id,pa.state as participation_state,pa.scope from legakeys.sessions s join legakeys.accounts a on a.account_id=s.account_id join legakeys.identities i on i.identity_id=a.identity_id left join legakeys.persons p on p.entity_id=i.entity_id left join legakeys.account_settings asx on asx.account_id=a.account_id left join legakeys.participants pt on pt.identity_id=i.identity_id and pt.state='ACTIVE' left join legakeys.participations pa on pa.participation_id=pt.participation_id where s.session_secret_reference=$1 and s.state='ACTIVE' and s.expires_at>now() and a.state='ACTIVE' order by pa.created_at desc nulls last limit 1`,[await sha256(raw)]);return rows[0]??null}catch{return null}}
+async function canonicalSession(env:Env,request:Request):Promise<Row|null>{const raw=cookieValue(request,SESSION_COOKIE);if(!raw)return null;try{const rows=await query(env,`select s.session_id,s.account_id,s.expires_at,a.state as account_state,a.identity_id,i.entity_id,i.identity_type,i.verification_state,p.person_id,p.legal_name,p.display_name,asx.profile_photo_data,asx.profile_photo_mime,pt.participant_id,pt.state as participant_state,pa.participation_id,pa.context_entity_id,pa.state as participation_state,pa.scope from legakeys.sessions s join legakeys.accounts a on a.account_id=s.account_id join legakeys.identities i on i.identity_id=a.identity_id left join legakeys.persons p on p.entity_id=i.entity_id left join legakeys.account_settings asx on asx.account_id=a.account_id left join legakeys.participants pt on pt.identity_id=i.identity_id and pt.state='ACTIVE' left join legakeys.participations pa on pa.participation_id=pt.participation_id where s.session_secret_reference=$1 and s.state='ACTIVE' and s.expires_at>now() and a.state='ACTIVE' order by pa.created_at desc nulls last limit 1`,[await sha256(raw)]);return rows[0]??null}catch{return null}}
 function publicAccount(r:Row){return {account_id:r.account_id,account_state:r.account_state,identity_id:r.identity_id,identity_type:r.identity_type,verification_state:r.verification_state,person:{person_id:r.person_id,legal_name:r.legal_name,display_name:r.display_name},photo:{data:r.profile_photo_data||null,mime:r.profile_photo_mime||null},participant:{participant_id:r.participant_id,state:r.participant_state},participation:{participation_id:r.participation_id,context_entity_id:r.context_entity_id,state:r.participation_state,scope:r.scope}}}
 
 function json(data: unknown, status = 200): Response {
@@ -462,6 +462,7 @@ async function api(request: Request, env: Env): Promise<Response> {
       if (!session) return cors(json({ok:false,code:"AUTH_REQUIRED",message:"A canonical LegaKeys session is required."},401),request);
       const participantId = String(session.participant_id ?? "");
       const identityId = String(session.identity_id ?? "");
+      const identityEntityId = String(session.entity_id ?? "");
       const identityType = String(session.identity_type ?? "");
       const rows = await query(env, `
         select cp.community_entity_id,cp.workspace_id,cp.operator_entity_id,cp.operator_type,cp.onboarding_state,cp.plan_code,cp.plan_version,cp.plan_state,
@@ -476,9 +477,10 @@ async function api(request: Request, env: Env): Promise<Response> {
         from legakeys.community_profiles cp
         join legakeys.workspaces w on w.id=cp.workspace_id
         left join legakeys.workspace_memberships wm on wm.workspace_id=w.id and wm.participant_ref=$1 and wm.status='ACTIVE'
-        where wm.id is not null or ($2='COMMUNITY' and cp.community_entity_id=$3::uuid)
+        where wm.id is not null
+           or (cp.operator_entity_id=$3::uuid and cp.operator_type=$2 and $3<>'')
         order by cp.updated_at desc
-      `,[participantId,identityType,identityId]);
+      `,[participantId,identityType,identityEntityId]);
       const communities=[];
       for(const row of rows){
         const people=await query(env,`select cr.id,cr.participant_ref,cr.relationship_type,cr.state,cr.scope_ref,cr.effective_from,cr.effective_until from legakeys.community_roster cr where cr.community_entity_id=$1 order by cr.updated_at desc limit 50`,[row.community_entity_id]);
@@ -489,7 +491,7 @@ async function api(request: Request, env: Env): Promise<Response> {
         const accessPoints=await query(env,`select cap.id,cap.access_point_id,cap.name,cap.scope,cap.state,cap.controller_provider_id,cap.controller_reference,cap.notes,ap.access_point_type,ap.lifecycle_state,ap.truth_state,ap.operational_state from legakeys.community_access_points cap join legakeys.access_points ap on ap.access_point_id=cap.access_point_id where cap.community_entity_id=$1 order by cap.updated_at desc limit 50`,[row.community_entity_id]);
         communities.push({community:{entity_id:row.community_entity_id,workspace_id:row.workspace_id,name:row.name,purpose:row.purpose,operator_entity_id:row.operator_entity_id,operator_type:row.operator_type,onboarding_state:row.onboarding_state,plan_code:row.plan_code,plan_version:row.plan_version,plan_state:row.plan_state,lifecycle:row.lifecycle,version:row.version},metrics:{people:Number(row.people_count),residents:Number(row.resident_count),workers:Number(row.worker_count),providers:Number(row.provider_count),open_work:Number(row.open_work_count),plans:Number(row.plan_count),configured_services:Number(row.configured_service_count)},people,providers,services,plans,work,accessPoints});
       }
-      return cors(json({ok:true,state:"VERIFIED",data:communities,truth:{source:"canonical community operating tables",service_control:"LegaKeys",provider_state:"declared/verified separately",authorization:"operational membership never substitutes for consequential authorization"}}),request);
+      return cors(json({ok:true,state:"VERIFIED",data:communities,truth:{source:"canonical community operating tables",operator_scope:"bound to the authenticated community/organization identity entity or explicit participant operator membership",service_control:"LegaKeys",provider_state:"declared/verified separately",authorization:"operational membership never substitutes for consequential authorization"}}),request);
     }
 
     if (request.method === "POST" && url.pathname === "/api/community/roster") {
