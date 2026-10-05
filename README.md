@@ -2,9 +2,11 @@
 
 **LegaKeys**
 
-**Intelligent Living Infrastructure for Participating People and Communities**
+**Multi-context, identity-centric operational ecosystem**
 
-> **Who you are. Where you Belong. One ecosystem.**
+> **One identity. Many contexts. Explicit relationships. Governed capabilities. Authorized operations. Verifiable outcomes.**
+
+**Canonical architecture:** [CANONICAL_PLATFORM_MODEL.md](./CANONICAL_PLATFORM_MODEL.md)
 
 **Built by United of Balega**
 
