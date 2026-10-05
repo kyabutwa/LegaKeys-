@@ -83,7 +83,7 @@ jobs:
           node --input-type=module - <<'NODE'
           const base = process.env.LEGAKEYS_PRODUCTION_URL.replace(/\/$/, "");
           const version = process.env.LEGAKEYS_VERSION_ID;
-          const headers = { accept: "application/json", "Cloudflare-Workers-Version-Overrides": `legakeys1="${version}"` };
+          const headers = { accept: "application/json", cookie: "", "Cloudflare-Workers-Version-Overrides": `legakeys1="${version}"` };
           const checks = ["/api/health", "/api/services", "/api/core-domains"];
           for (const path of checks) {
             const response = await fetch(base + path, { headers });
