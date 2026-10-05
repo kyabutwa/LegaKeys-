@@ -55,6 +55,18 @@ jobs:
           chmod +x database/apply-canonical-schema.sh
           ./database/apply-canonical-schema.sh
 
+      - name: Run rollback-only canonical runtime smoke test
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$DATABASE_URL" || { echo "NEON_DATABASE_URL GitHub secret is required"; exit 1; }
+          DATABASE_URL="$(printf "%s" "$DATABASE_URL" | tr -d "\r\n")"
+          export DATABASE_URL
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/runtime-smoke.sql
+
       - name: Configure Worker Neon database secret
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.LEGAKEYS }}
