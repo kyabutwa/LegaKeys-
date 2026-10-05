@@ -117,3 +117,32 @@ create index if not exists participant_identity_idx on legakeys.participants(ide
 
 -- Authorization is intentionally outside this schema.
 -- Secrets are represented by protected references, never ordinary plaintext fields.
+
+
+-- Account settings and password recovery are canonical account-control data.
+create table if not exists legakeys.account_settings (
+  account_settings_id uuid primary key default gen_random_uuid(),
+  account_id uuid not null unique references legakeys.accounts(account_id) on delete cascade,
+  language text not null default 'en',
+  appearance text not null default 'system',
+  compact_mode boolean not null default false,
+  notifications jsonb not null default '{"security":true,"account":true,"participation":true,"services":true,"community":true}'::jsonb,
+  privacy jsonb not null default '{"activity_visibility":"private","evidence_visibility":"restricted"}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists legakeys.account_recovery_challenges (
+  recovery_challenge_id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references legakeys.accounts(account_id) on delete cascade,
+  token_hash text not null unique,
+  state text not null default 'ACTIVE',
+  expires_at timestamptz not null,
+  consumed_at timestamptz,
+  requested_at timestamptz not null default now(),
+  requested_from text,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists account_recovery_account_idx on legakeys.account_recovery_challenges(account_id, state);
+create index if not exists account_recovery_expiry_idx on legakeys.account_recovery_challenges(expires_at);
