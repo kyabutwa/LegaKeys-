@@ -1000,7 +1000,7 @@ h1,h2,h3,h4,h5,h6,
 
 /* Home bar: the LegaKeys mark sits exactly between Home and the three-line menu. */
 .topbar-home-group{position:relative;z-index:2;flex:0 0 auto}
-.topbar-menu-button{position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:3}
+.topbar-menu-button{position:absolute;left:12px;top:50%;transform:translateY(-50%);z-index:3}
 .topbar-centered-logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;display:grid;place-items:center;pointer-events:none}
 .topbar-centered-logo .brand{min-width:0}
 .topbar-centered-logo .brand-image{width:36px;height:36px}
@@ -1008,5 +1008,5 @@ h1,h2,h3,h4,h5,h6,
 .topbar .nav-back{margin-left:auto;z-index:2}
 @media(max-width:520px){
  .topbar-centered-logo .brand-image{width:33px;height:33px}
- .topbar-menu-button{right:5px}
+ .topbar-menu-button{left:5px}
 }
