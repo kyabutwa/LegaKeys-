@@ -24,6 +24,9 @@ on:
       - "implementation/**"
       - "database/**"
       - ".github/workflows/production-ui.yml"
+      - "CANONICAL_PLATFORM_MODEL.md"
+      - "ARCHITECTURE.md"
+      - "README.md"
   pull_request:
     paths:
       - "src/**"
