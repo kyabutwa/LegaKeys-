@@ -155,3 +155,8 @@ create index if not exists account_recovery_expiry_idx on legakeys.account_recov
 alter table if exists legakeys.account_settings add column if not exists profile_photo_data text;
 alter table if exists legakeys.account_settings add column if not exists profile_photo_mime text;
 alter table if exists legakeys.account_settings add column if not exists profile_photo_updated_at timestamptz;
+
+
+alter table if exists legakeys.account_settings add column if not exists profile_photo_data text;
+alter table if exists legakeys.account_settings add column if not exists profile_photo_mime text;
+alter table if exists legakeys.account_settings add column if not exists profile_photo_updated_at timestamptz;
