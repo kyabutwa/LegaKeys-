@@ -8,6 +8,10 @@ BEGIN;
 
 CREATE SCHEMA IF NOT EXISTS legakeys;
 
+-- Remove the historical incompatible FK if an earlier migration created it.
+ALTER TABLE legakeys.actions
+  DROP CONSTRAINT IF EXISTS actions_authorization_decision_fkey;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -18,9 +22,13 @@ BEGIN
     ALTER TABLE legakeys.actions
       ADD CONSTRAINT actions_authorization_request_fkey
       FOREIGN KEY (authorization_id)
-      REFERENCES legakeys.authorization_requests(authorization_id);
+      REFERENCES legakeys.authorization_requests(authorization_id)
+      NOT VALID;
   END IF;
 END $$;
+
+ALTER TABLE legakeys.actions
+  VALIDATE CONSTRAINT actions_authorization_request_fkey;
 
 CREATE INDEX IF NOT EXISTS authorization_requests_principal_idx
   ON legakeys.authorization_requests(principal_entity_id);
@@ -43,18 +51,13 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'LEGAKEYS_ACTION_NOT_FOUND'; END IF;
   IF a.authorization_id IS NULL THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_REQUIRED'; END IF;
 
-  SELECT * INTO r
-  FROM legakeys.authorization_requests
-  WHERE authorization_id = a.authorization_id
-  FOR SHARE;
+  SELECT * INTO r FROM legakeys.authorization_requests
+  WHERE authorization_id = a.authorization_id FOR SHARE;
   IF NOT FOUND THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_FOUND'; END IF;
 
-  SELECT * INTO d
-  FROM legakeys.authorization_decisions
+  SELECT * INTO d FROM legakeys.authorization_decisions
   WHERE authorization_id = r.authorization_id
-  ORDER BY decision_version DESC
-  LIMIT 1
-  FOR SHARE;
+  ORDER BY decision_version DESC LIMIT 1 FOR SHARE;
   IF NOT FOUND THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_DECISION_NOT_FOUND'; END IF;
 
   SELECT * INTO c FROM legakeys.runtime_contract WHERE contract_id = 1 FOR SHARE;
@@ -64,13 +67,10 @@ BEGIN
   IF NOT c.consequential_writes_enabled THEN
     RAISE EXCEPTION 'LEGAKEYS_CONSEQUENTIAL_WRITES_DISABLED';
   END IF;
-
   IF r.request_state NOT IN ('DECIDED','CONSUMED') THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_REQUEST_NOT_DECIDED';
   END IF;
-  IF d.decision <> 'ALLOW' THEN
-    RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_ALLOWED';
-  END IF;
+  IF d.decision <> 'ALLOW' THEN RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_NOT_ALLOWED'; END IF;
   IF r.principal_entity_id <> a.principal_id THEN
     RAISE EXCEPTION 'LEGAKEYS_AUTHORIZATION_PRINCIPAL_MISMATCH';
   END IF;
@@ -108,9 +108,7 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION legakeys.guard_action_execution()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
   IF NEW.execution_state IN ('STARTED','ACCEPTED') THEN
     PERFORM legakeys.assert_consequential_execution(NEW.action_id);
@@ -125,14 +123,10 @@ BEFORE INSERT OR UPDATE OF execution_state ON legakeys.action_executions
 FOR EACH ROW EXECUTE FUNCTION legakeys.guard_action_execution();
 
 CREATE OR REPLACE FUNCTION legakeys.guard_execution_attempt_mutation()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-AS $func$
+RETURNS TRIGGER LANGUAGE plpgsql AS $func$
 BEGIN
   IF TG_OP = 'DELETE' THEN RAISE EXCEPTION 'LEGAKEYS_EXECUTION_IMMUTABLE'; END IF;
-  IF NEW.action_id <> OLD.action_id
-     OR NEW.attempt_number <> OLD.attempt_number
-     OR NEW.started_at <> OLD.started_at THEN
+  IF NEW.action_id <> OLD.action_id OR NEW.attempt_number <> OLD.attempt_number OR NEW.started_at <> OLD.started_at THEN
     RAISE EXCEPTION 'LEGAKEYS_EXECUTION_IDENTITY_IMMUTABLE';
   END IF;
   IF OLD.execution_state IN ('COMPLETED','FAILED','UNKNOWN','CANCELLED','TIMED_OUT')
