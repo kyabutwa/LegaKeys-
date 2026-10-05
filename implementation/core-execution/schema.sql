@@ -188,6 +188,7 @@ END;
 $func$;
 
 DROP TRIGGER IF EXISTS action_executions_no_update ON legakeys.action_executions;
+DROP TRIGGER IF EXISTS action_executions_mutation_guard ON legakeys.action_executions;
 CREATE TRIGGER action_executions_mutation_guard
 BEFORE UPDATE OR DELETE ON legakeys.action_executions
 FOR EACH ROW EXECUTE FUNCTION legakeys.guard_execution_attempt_mutation();
