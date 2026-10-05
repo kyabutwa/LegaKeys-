@@ -164,6 +164,57 @@ async function api(request: Request, env: Env): Promise<Response> {
       const rows = await query(env, "select id, event_source, event_version, event_type, action_id, execution_id, actor_id, principal_id, subject_type, subject_id, occurred_at, recorded_at, correlation_id, truth_state, source_type, source_reference from legakeys.events order by occurred_at desc limit 50");
       return cors(json({ ok: true, state: "VERIFIED", data: rows }), request);
     }
+    if (request.method === "POST" && url.pathname === "/api/community/create") {
+      const session = await canonicalSession(env, request);
+      if (!session) return cors(json({ok:false,code:"AUTH_REQUIRED",message:"A canonical LegaKeys participant session is required."},401), request);
+      const body = await request.json().catch(()=>({}));
+      const name = String(body?.name ?? "").trim();
+      const purpose = String(body?.purpose ?? "").trim();
+      if (name.length < 2 || name.length > 160) return cors(json({ok:false,code:"INVALID_COMMUNITY_NAME",message:"Community name must be between 2 and 160 characters."},400),request);
+      if (purpose.length < 2 || purpose.length > 500) return cors(json({ok:false,code:"INVALID_COMMUNITY_PURPOSE",message:"Community purpose must be between 2 and 500 characters."},400),request);
+      const participantId = String(session.participant_id ?? "");
+      const ids = {entity:crypto.randomUUID(), identity:crypto.randomUUID(), workspace:crypto.randomUUID(), membership:crypto.randomUUID(), correlation:crypto.randomUUID()};
+      const rows = await query(env, `
+        with principal as (
+          select p.participant_id
+          from legakeys.participants p
+          where p.participant_id=$1 and p.state='ACTIVE'
+        ), existing as (
+          select w.id as workspace_id
+          from legakeys.workspaces w
+          join legakeys.workspace_memberships wm on wm.workspace_id=w.id
+          where w.workspace_type='COMMUNITY_OPERATING'
+            and wm.participant_ref=$1 and wm.status='ACTIVE' and w.name=$2
+          limit 1
+        ), e as (
+          insert into legakeys.entities(entity_id,entity_type,canonical_name,display_name,lifecycle_state)
+          select $3::uuid,'COMMUNITY',$2,$2,'ACTIVE'
+          where exists(select 1 from principal)
+            and not exists(select 1 from existing)
+          returning entity_id
+        ), i as (
+          insert into legakeys.identities(identity_id,entity_id,identity_type,state,verification_state)
+          select $4::uuid,entity_id,'COMMUNITY','ACTIVE','DECLARED'
+          from e returning identity_id,entity_id
+        ), w as (
+          insert into legakeys.workspaces(id,workspace_type,name,purpose,scope_ref,lifecycle,governance_ref,version,created_at,updated_at)
+          select $5::uuid,'COMMUNITY_OPERATING',$2,$6::text,$3::uuid,'ACTIVE',$3::uuid,1,now(),now()
+          from e returning id
+        ), m as (
+          insert into legakeys.workspace_memberships(id,workspace_id,participant_ref,role,status,scope_ref,valid_from,created_at,updated_at)
+          select $7::uuid,w.id,$1,'COMMUNITY_INITIATOR','ACTIVE',$3::uuid,now(),now(),now()
+          from w returning workspace_id
+        )
+        select w.id as workspace_id,$3::uuid as community_entity_id,$4::uuid as community_identity_id
+        from w
+        union all
+        select e.workspace_id,NULL::uuid,NULL::uuid from existing e
+        limit 1
+      `,[participantId,name,ids.entity,ids.identity,ids.workspace,purpose,ids.membership]);
+      if(!rows[0]) return cors(json({ok:false,code:"COMMUNITY_CREATE_FAILED",message:"The participant could not create a community space."},400),request);
+      return cors(json({ok:true,state:"CREATED",community_entity_id:rows[0].community_entity_id,community_identity_id:rows[0].community_identity_id,workspace_id:rows[0].workspace_id,role:"COMMUNITY_INITIATOR",truth:{community_space:"created",authority:"not granted by creation",membership:"explicit"}}),request);
+    }
+
     if (request.method === "GET" && url.pathname === "/api/workspace-center") {
       const session = await canonicalSession(env, request);
       if (!session) return cors(json({ ok:false, code:"AUTH_REQUIRED", message:"A canonical LegaKeys session is required." }, 401), request);
