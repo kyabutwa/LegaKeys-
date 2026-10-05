@@ -157,3 +157,29 @@ CREATE INDEX IF NOT EXISTS idx_service_connections_service ON legakeys.service_p
 CREATE INDEX IF NOT EXISTS idx_service_requests_principal ON legakeys.service_requests(principal_entity_id);
 CREATE INDEX IF NOT EXISTS idx_service_requests_service ON legakeys.service_requests(service_id);
 CREATE INDEX IF NOT EXISTS idx_service_events_request ON legakeys.service_events(request_id, occurred_at);
+
+
+-- Canonical Beat-family catalog.
+-- These rows are DECLARED platform capabilities, not claims of provider availability.
+-- Provider connections, availability and execution remain separate governed states.
+INSERT INTO legakeys.services
+  (service_id, beat_code, canonical_name, description, owner_domain, lifecycle_state, truth_state, native_or_provider_mode, provenance)
+VALUES
+  (gen_random_uuid(), 'BEATACCESS', 'BeatAccess', 'Governed physical and digital access', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATHOME', 'BeatHome', 'Home, household, unit and home operations', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATUTILITIES', 'BeatUtilities', 'Water, electricity, gas, internet and waste', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATMAINTENANCE', 'BeatMaintenance', 'Maintenance requests, work orders, inspections, repairs and evidence', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATFACILITY', 'BeatFacility', 'Facilities, reservations, availability and operations', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATCOMMUNITY', 'BeatCommunity', 'Community life, requests, activities and operations', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'NATIVE', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATVISITOR', 'BeatVisitor', 'Visitor invitations, guest verification and access windows', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATDELIVERY', 'BeatDelivery', 'Delivery verification, access and events', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATRIDE', 'BeatRide', 'Mobility discovery, booking and ride events', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'PROVIDER_DEPENDENT', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATPAY', 'BeatPay', 'Payment intent, authorization, execution and reconciliation', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'PROVIDER_DEPENDENT', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATMARKET', 'BeatMarket', 'Products, services, sellers, buyers, orders and fulfillment', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATFOOD', 'BeatFood', 'Food discovery, menus, orders, delivery and payment', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'PROVIDER_DEPENDENT', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATBNB', 'BeatBnB', 'Listings, availability, bookings, stays and payment', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'PROVIDER_DEPENDENT', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATHEALTH', 'BeatHealth', 'Health service discovery, requests and appointments', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'PROVIDER_DEPENDENT', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATGENZI', 'BeatGenzi', 'Learning, skills, education and development', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATWORK', 'BeatWork', 'Work discovery, opportunities, tasks and relationships', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}'),
+  (gen_random_uuid(), 'BEATGUARDIAN', 'BeatGuardian', 'Safety, assistance, incidents, escalation and handoff', 'LEGAKEYS', 'ACTIVE', 'DECLARED', 'HYBRID', '{"source":"canonical-service-catalog","state":"DECLARED"}')
+ON CONFLICT (beat_code) DO NOTHING;
