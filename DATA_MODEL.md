@@ -1,5 +1,9 @@
 # LEGAKEYS — CANONICAL DATA MODEL
 
+## v1.1.0 community identity correction
+
+Community is a first-class entity and BeatIdentity. Person identity is never duplicated when a person joins multiple communities. Community creation creates a COMMUNITY identity/account/workspace independently; person participation is represented only when a person explicitly joins or is otherwise authorized to participate.
+
 **Status:** Canonical  
 **Version:** 1.0  
 **Owner:** United of Balega  
