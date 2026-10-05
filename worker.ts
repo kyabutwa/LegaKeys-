@@ -9,7 +9,7 @@ interface Env {
 type Row = Record<string, unknown>;
 
 
-// Canonical data reads fail closed without a bound session.\nconst SESSION_COOKIE="__Host-legakeys_session";
+// Canonical data reads fail closed without a bound session. Final production boundary verification.\nconst SESSION_COOKIE="__Host-legakeys_session";
 const SESSION_TTL_SECONDS=604800;
 function requestOriginAllowed(request:Request){const origin=request.headers.get("Origin");return !origin||origin===new URL(request.url).origin}
 function cookieValue(request:Request,name:string){const raw=request.headers.get("Cookie")??"";for(const part of raw.split(";")){const [key,...rest]=part.trim().split("=");if(key===name)return rest.join("=")||null}return null}
