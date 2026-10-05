@@ -57,7 +57,7 @@ VALUES
  ('0000_canonical_runtime_contract.sql','80b481173ee64e67e7c22067b2910cf98e61cb34'),
  ('0001_runtime_resilience.sql','09e4bf27816589682fc5d6701cbc39994f89c14d'),
  ('0002_v1_1_0_governance.sql','e3cbfdbbd666a95f4e45a52839ae032073a4a53e'),
- ('f24abdf8051593eb12774eead4fc1dbab5fd0fba','0003_canonical_integrity_hardening.sql')
+ ('0003_canonical_integrity_hardening.sql','integrity-hardening-v1')
 ON CONFLICT (filename) DO UPDATE
 SET checksum=EXCLUDED.checksum, state='APPLIED';
 
