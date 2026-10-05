@@ -36,12 +36,16 @@ for file in "${schema_files[@]}"; do
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$file"
 done
 
+echo "Applying database/0001_runtime_resilience.sql"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/0001_runtime_resilience.sql
+
 echo "== Verifying canonical LegaKeys contract =="
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
-  "select product_name || '|' || contract_version || '|' || canonical_schema || '|' || legacy_runtime_allowed || '|' || consequential_writes_enabled from legakeys.runtime_contract where contract_id=1"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc   "select product_name || '|' || contract_version || '|' || canonical_schema || '|' || legacy_runtime_allowed || '|' || consequential_writes_enabled from legakeys.runtime_contract where contract_id=1"
 
 echo "== Verifying Core Execution gate =="
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc \
-  "select count(*) from information_schema.tables where table_schema='legakeys' and table_name in ('authorization_decisions','actions','action_executions','events','evidence')"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc   "select count(*) from information_schema.tables where table_schema='legakeys' and table_name in ('authorization_requests','authorization_decisions','actions','action_executions','events','evidence')"
+
+echo "== Verifying resilience policy =="
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc   "select policy_version || '|' || domain || '|' || max_retries || '|' || max_delay_ms from legakeys.runtime_resilience_policies where active=true order by domain"
 
 echo "== Canonical LegaKeys schema applied successfully =="
