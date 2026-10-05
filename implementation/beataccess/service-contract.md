@@ -6,6 +6,20 @@ BEATACCESS enforces an existing authorization decision against a declared access
 
 It is an enforcement and integration boundary, not a policy-decision authority.
 
+## Runtime vertical slice
+
+The first participant-facing runtime slice is intentionally fail-closed:
+
+1. authenticated participant requests an operation against a declared access point;
+2. BeatAccess binds the request to an existing authorization decision;
+3. principal/action/target/access-point/credential/time constraints are validated;
+4. a valid operation becomes AUTHORIZED_FOR_EXECUTION;
+5. execution is attempted only through a declared controller/provider adapter;
+6. when no executable adapter is configured, the operation becomes PROVIDER_UNAVAILABLE and no physical command is issued;
+7. physical success is never inferred from authorization or command acceptance.
+
+This slice is production-safe even before a real controller integration exists because it never fabricates provider connectivity or physical access.
+
 ## Commands
 
 ### POST /beataccess/access-points
