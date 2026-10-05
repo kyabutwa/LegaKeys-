@@ -88,6 +88,109 @@ jobs:
           echo "LEGAKEYS_VERSION_ID=$version" >> "$GITHUB_ENV"
           npx wrangler versions deploy --version-id "$version" --percentage 100
           echo "Promoted Worker version to 100% traffic: $version"
+      - name: Run production HTTP onboarding smoke test
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+          LEGAKEYS_PRODUCTION_URL: https://legakeys1.kyabutwabis-f.workers.dev
+        run: |
+          set -euo pipefail
+          test -n "$DATABASE_URL" || { echo "NEON_DATABASE_URL GitHub secret is required"; exit 1; }
+          DATABASE_URL="$(printf "%s" "$DATABASE_URL" | tr -d "\r\n")"
+          export DATABASE_URL
+          SMOKE_ID="$(date +%s)-$RANDOM"
+          export SMOKE_ID
+          SMOKE_A="__HTTP_SMOKE_A_$SMOKE_ID"
+          SMOKE_B="__HTTP_SMOKE_B_$SMOKE_ID"
+          export SMOKE_A SMOKE_B
+          cleanup() {
+            set +e
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=0 -v smoke_a="$SMOKE_A" -v smoke_b="$SMOKE_B" <<'SQL'
+          BEGIN;
+          DELETE FROM legakeys.community_roster
+            WHERE community_entity_id IN (
+              SELECT community_entity_id FROM legakeys.community_profiles
+              WHERE settings->>'join_code' LIKE 'LK-HTTP-SMOKE-%'
+            );
+          DELETE FROM legakeys.workspace_memberships
+            WHERE workspace_id IN (
+              SELECT workspace_id FROM legakeys.community_profiles
+              WHERE settings->>'join_code' LIKE 'LK-HTTP-SMOKE-%'
+            );
+          DELETE FROM legakeys.community_profiles WHERE settings->>'join_code' LIKE 'LK-HTTP-SMOKE-%';
+          DELETE FROM legakeys.workspaces WHERE name LIKE '__HTTP_SMOKE_COMMUNITY_%';
+          DELETE FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b') OR canonical_name LIKE '__HTTP_SMOKE_COMMUNITY_%';
+          DELETE FROM legakeys.sessions WHERE account_id IN (
+            SELECT a.account_id FROM legakeys.accounts a
+            JOIN legakeys.identities i ON i.identity_id=a.identity_id
+            JOIN legakeys.entities e ON e.entity_id=i.entity_id
+            WHERE e.canonical_name IN (:'smoke_a', :'smoke_b')
+          );
+          DELETE FROM legakeys.credentials WHERE subject_reference LIKE 'http-smoke-%@invalid.legakeys';
+          DELETE FROM legakeys.participants WHERE identity_id IN (
+            SELECT i.identity_id FROM legakeys.identities i JOIN legakeys.entities e ON e.entity_id=i.entity_id
+            WHERE e.canonical_name IN (:'smoke_a', :'smoke_b')
+          );
+          DELETE FROM legakeys.participations WHERE identity_id IN (
+            SELECT i.identity_id FROM legakeys.identities i JOIN legakeys.entities e ON e.entity_id=i.entity_id
+            WHERE e.canonical_name IN (:'smoke_a', :'smoke_b')
+          );
+          DELETE FROM legakeys.persons WHERE entity_id IN (
+            SELECT entity_id FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b')
+          );
+          DELETE FROM legakeys.accounts WHERE identity_id IN (
+            SELECT identity_id FROM legakeys.identities i JOIN legakeys.entities e ON e.entity_id=i.entity_id
+            WHERE e.canonical_name IN (:'smoke_a', :'smoke_b')
+          );
+          DELETE FROM legakeys.identities WHERE entity_id IN (
+            SELECT entity_id FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b')
+          );
+          DELETE FROM legakeys.entities WHERE canonical_name IN (:'smoke_a', :'smoke_b');
+          COMMIT;
+          SQL
+          }
+          trap cleanup EXIT
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          node --input-type=module <<'NODE'
+          const base = process.env.LEGAKEYS_PRODUCTION_URL.replace(/\/$/,"");
+          const id = process.env.SMOKE_ID;
+          const a = {email:`http-smoke-${id}-a@invalid.legakeys`, password:"SmokePassword!2026-Strong", confirmPassword:"SmokePassword!2026-Strong", legalName:`__HTTP_SMOKE_A_${id}__`, displayName:"HTTP Smoke A", countryOfResidence:"KE"};
+          const b = {email:`http-smoke-${id}-b@invalid.legakeys`, password:"SmokePassword!2026-Strong", confirmPassword:"SmokePassword!2026-Strong", legalName:`__HTTP_SMOKE_B_${id}__`, displayName:"HTTP Smoke B", countryOfResidence:"KE"};
+          const request = async (path, init={}) => {
+            const r = await fetch(base+path,{...init,headers:{"content-type":"application/json",...(init.headers||{})}});
+            const text = await r.text(); let body=null; try{body=JSON.parse(text)}catch{}
+            return {r,body};
+          };
+          const signup = async (payload) => {
+            const {r,body}=await request("/api/account/signup",{method:"POST",body:JSON.stringify(payload)});
+            if(!r.ok||!body?.ok) throw new Error("signup failed: HTTP "+r.status+" "+JSON.stringify(body));
+          };
+          const login = async (payload) => {
+            const {r,body}=await request("/api/auth/login",{method:"POST",body:JSON.stringify({email:payload.email,password:payload.password})});
+            if(!r.ok||!body?.ok) throw new Error("login failed: HTTP "+r.status+" "+JSON.stringify(body));
+            const raw=r.headers.get("set-cookie")||"";
+            const m=raw.match(/__Host-legakeys_session=[^;]+/);
+            if(!m) throw new Error("login returned no canonical session cookie");
+            return m[0];
+          };
+          await signup(a);
+          const cookieA=await login(a);
+          let m=await request("/api/me",{headers:{cookie:cookieA}});
+          if(!m.r.ok||!m.body?.ok||!m.body?.data?.participant?.participant_id) throw new Error("A /api/me failed: HTTP "+m.r.status+" "+JSON.stringify(m.body));
+          let c=await request("/api/community/create",{method:"POST",headers:{cookie:cookieA},body:JSON.stringify({name:`__HTTP_SMOKE_COMMUNITY_${id}`,purpose:"HTTP runtime smoke",operatorType:"COMMUNITY",organizationName:""})});
+          if(!c.r.ok||!c.body?.ok||!c.body?.join_code) throw new Error("community create failed: HTTP "+c.r.status+" "+JSON.stringify(c.body));
+          const joinCode=c.body.join_code;
+          c=await request("/api/community/join",{method:"POST",headers:{cookie:cookieA},body:JSON.stringify({inviteCode:joinCode})});
+          if(!c.r.ok||!c.body?.ok) throw new Error("same-user community join failed: HTTP "+c.r.status+" "+JSON.stringify(c.body));
+          await signup(b);
+          const cookieB=await login(b);
+          m=await request("/api/me",{headers:{cookie:cookieB}});
+          if(!m.r.ok||!m.body?.ok||!m.body?.data?.participant?.participant_id) throw new Error("B /api/me failed: HTTP "+m.r.status+" "+JSON.stringify(m.body));
+          c=await request("/api/community/join",{method:"POST",headers:{cookie:cookieB},body:JSON.stringify({inviteCode:joinCode})});
+          if(!c.r.ok||!c.body?.ok||c.body?.state!=="JOINED") throw new Error("second participant community join failed: HTTP "+c.r.status+" "+JSON.stringify(c.body));
+          console.log("PRODUCTION_HTTP_ONBOARDING_SMOKE=GREEN");
+          NODE
+
       - name: Verify deployed canonical runtime
         env:
           LEGAKEYS_PRODUCTION_URL: https://legakeys1.kyabutwabis-f.workers.dev
