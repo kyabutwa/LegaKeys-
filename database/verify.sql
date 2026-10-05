@@ -123,7 +123,7 @@ begin
   if decision_columns_missing > 0 then
     raise exception 'LEGAKEYS_AUTHORIZATION_SCHEMA_INVALID: % required decision columns missing', decision_columns_missing;
   end if;
-end $;
+end $verify$;
 
 select 'LEGAKEYS_DATABASE_VERIFICATION=GREEN' as result;
 
