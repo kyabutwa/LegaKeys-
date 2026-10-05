@@ -510,6 +510,7 @@ async function api(request: Request, env: Env): Promise<Response> {
         try{return await query(env,sql,values)}
         catch(e){throw new Error(label+": "+(e instanceof Error?e.message:String(e)))}
       };
+      try {
       const communities=[];
       for(const row of rows){
         const people=await scopedQuery("people",`select cr.id,cr.participant_ref,cr.relationship_type,cr.state,cr.scope_ref,cr.effective_from,cr.effective_until from legakeys.community_roster cr where cr.community_entity_id=$1 order by cr.updated_at desc limit 50`,[row.community_entity_id]);
