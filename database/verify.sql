@@ -238,7 +238,7 @@ begin
     ('contexts_actor_idx'),
     ('contexts_subject_idx'),
     ('contexts_scope_idx'),
-    ('capabilities_subject'),
+    ('idx_capabilities_subject'),
     ('idx_capabilities_lifecycle'),
     ('idx_community_roster_community'),
     ('idx_community_roster_participant')
