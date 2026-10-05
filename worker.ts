@@ -476,13 +476,10 @@ async function api(request: Request, env: Env): Promise<Response> {
       const session = await canonicalSession(env, request);
       if (!session) return cors(json({ok:false,code:"AUTH_REQUIRED",message:"A canonical LegaKeys session is required."},401),request);
       const participantId = String(session.participant_id ?? "");
-      const identityId = String(session.identity_id ?? "");
       const identityEntityId = String(session.entity_id ?? "");
       const identityType = String(session.identity_type ?? "");
       const selectedCommunityId = String(url.searchParams.get("community_entity_id") ?? "").trim();
-      let rows: Row[]=[];
-      try {
-        rows = await query(env, `
+      const rows = await query(env, `
         select cp.community_entity_id,cp.workspace_id,cp.operator_entity_id,cp.operator_type,cp.onboarding_state,cp.plan_code,cp.plan_version,cp.plan_state,
                w.name,w.purpose,w.lifecycle,w.version,
                (select count(*) from legakeys.community_roster cr where cr.community_entity_id=cp.community_entity_id and cr.state='ACTIVE') as people_count,
@@ -491,10 +488,16 @@ async function api(request: Request, env: Env): Promise<Response> {
                (select count(*) from legakeys.community_provider_links cpl where cpl.community_entity_id=cp.community_entity_id and cpl.state='ACTIVE') as provider_count,
                (select count(*) from legakeys.community_work_orders cwo where cwo.community_entity_id=cp.community_entity_id and cwo.state not in ('COMPLETED','CANCELLED')) as open_work_count,
                (select count(*) from legakeys.community_plans cpln where cpln.community_entity_id=cp.community_entity_id and cpln.state in ('DRAFT','ACTIVE','PAUSED')) as plan_count,
-               (select count(*) from legakeys.community_service_config csc where csc.community_entity_id=cp.community_entity_id) as configured_service_count
+               (select count(*) from legakeys.community_service_config csc where csc.community_entity_id=cp.community_entity_id) as configured_service_count,
+               (select coalesce(json_agg(t),'[]'::json) from (select cr.id,cr.participant_ref,cr.relationship_type,cr.state,cr.scope_ref,cr.effective_from,cr.effective_until from legakeys.community_roster cr where cr.community_entity_id=cp.community_entity_id order by cr.updated_at desc limit 50) t) as people_data,
+               (select coalesce(json_agg(t),'[]'::json) from (select cpl.id,cpl.provider_entity_id,cpl.provider_participant_ref,cpl.verification_state,cpl.state,cpl.service_scope,cpl.contract_reference,cpl.effective_from,cpl.effective_until from legakeys.community_provider_links cpl where cpl.community_entity_id=cp.community_entity_id order by cpl.updated_at desc limit 50) t) as providers_data,
+               (select coalesce(json_agg(t),'[]'::json) from (select csc.id,csc.service_id,s.beat_code,s.canonical_name,s.description,s.truth_state,s.native_or_provider_mode,csc.state,csc.community_control,csc.last_verified_at from legakeys.community_service_config csc join legakeys.services s on s.service_id=csc.service_id where csc.community_entity_id=cp.community_entity_id order by s.canonical_name) t) as services_data,
+               (select coalesce(json_agg(t),'[]'::json) from (select id,name,objective,horizon_start,horizon_end,state,budget_model,measures,risks,created_at,updated_at from legakeys.community_plans where community_entity_id=cp.community_entity_id order by updated_at desc limit 20) t) as plans_data,
+               (select coalesce(json_agg(t),'[]'::json) from (select id,title,description,priority,state,target_ref,assigned_provider_ref,assigned_worker_ref,due_at,authorization_ref,evidence_refs,created_at,updated_at from legakeys.community_work_orders where community_entity_id=cp.community_entity_id order by updated_at desc limit 30) t) as work_data,
+               (select coalesce(json_agg(t),'[]'::json) from (select cap.id,cap.access_point_id,cap.name,cap.scope,cap.state,cap.controller_provider_id,cap.controller_reference,cap.notes,ap.access_point_type,ap.lifecycle_state,ap.truth_state,ap.operational_state from legakeys.community_access_points cap join legakeys.access_points ap on ap.access_point_id=cap.access_point_id where cap.community_entity_id=cp.community_entity_id order by cap.updated_at desc limit 50) t) as access_points_data
         from legakeys.community_profiles cp
-        join legakeys.workspaces w on w.id=cp.workspace_id
-        left join legakeys.workspace_memberships wm on wm.workspace_id=w.id and ($1='' or wm.participant_ref=nullif($1,'')::uuid) and wm.status='ACTIVE'
+        join legakeys.workspaces w on w.id=cp.workspace_id and w.lifecycle='ACTIVE'
+        left join legakeys.workspace_memberships wm on wm.workspace_id=w.id and wm.status='ACTIVE' and wm.participant_ref=nullif($1,'')::uuid
         where ($5='' or cp.community_entity_id=nullif($5,'')::uuid) and (
           (wm.id is not null and wm.role in ('COMMUNITY_OPERATOR','COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))
           or (cp.operator_entity_id=$3::uuid and cp.operator_type=$2)
@@ -502,32 +505,14 @@ async function api(request: Request, env: Env): Promise<Response> {
         )
         order by cp.updated_at desc
       `,[participantId,identityType,identityEntityId,String(session.account_id ?? ""),selectedCommunityId]);
-      } catch (e) {
-        const detail=e instanceof Error?e.message:String(e);
-        return cors(json({ok:false,state:"UNAVAILABLE",code:"DATABASE_ERROR",debug:detail.slice(0,500)},502),request);
-      }
-      const scopedQuery=async(label:string,sql:string,values:unknown[])=>{
-        try{return await query(env,sql,values)}
-        catch(e){throw new Error(label+": "+(e instanceof Error?e.message:String(e)))}
-      };
-      try {
-      const communities=[];
-      for(const row of rows){
-        const people=await scopedQuery("people",`select cr.id,cr.participant_ref,cr.relationship_type,cr.state,cr.scope_ref,cr.effective_from,cr.effective_until from legakeys.community_roster cr where cr.community_entity_id=$1 order by cr.updated_at desc limit 50`,[row.community_entity_id]);
-        const providers=await scopedQuery("providers",`select id,provider_entity_id,provider_participant_ref,verification_state,state,service_scope,contract_reference,effective_from,effective_until from legakeys.community_provider_links where community_entity_id=$1 order by updated_at desc limit 50`,[row.community_entity_id]);
-        const services=await scopedQuery("services",`select csc.id,csc.service_id,s.beat_code,s.canonical_name,s.description,s.truth_state,s.native_or_provider_mode,csc.state,csc.community_control,csc.last_verified_at from legakeys.community_service_config csc join legakeys.services s on s.service_id=csc.service_id where csc.community_entity_id=$1 order by s.canonical_name`,[row.community_entity_id]);
-        const plans=await scopedQuery("plans",`select id,name,objective,horizon_start,horizon_end,state,budget_model,measures,risks,created_at,updated_at from legakeys.community_plans where community_entity_id=$1 order by updated_at desc limit 20`,[row.community_entity_id]);
-        const work=await scopedQuery("work",`select id,title,description,priority,state,target_ref,assigned_provider_ref,assigned_worker_ref,due_at,authorization_ref,evidence_refs,created_at,updated_at from legakeys.community_work_orders where community_entity_id=$1 order by updated_at desc limit 30`,[row.community_entity_id]);
-        const accessPoints=await scopedQuery("accessPoints",`select cap.id,cap.access_point_id,cap.name,cap.scope,cap.state,cap.controller_provider_id,cap.controller_reference,cap.notes,ap.access_point_type,ap.lifecycle_state,ap.truth_state,ap.operational_state from legakeys.community_access_points cap join legakeys.access_points ap on ap.access_point_id=cap.access_point_id where cap.community_entity_id=$1 order by cap.updated_at desc limit 50`,[row.community_entity_id]);
-        communities.push({community:{entity_id:row.community_entity_id,workspace_id:row.workspace_id,name:row.name,purpose:row.purpose,operator_entity_id:row.operator_entity_id,operator_type:row.operator_type,onboarding_state:row.onboarding_state,plan_code:row.plan_code,plan_version:row.plan_version,plan_state:row.plan_state,lifecycle:row.lifecycle,version:row.version},metrics:{people:Number(row.people_count),residents:Number(row.resident_count),workers:Number(row.worker_count),providers:Number(row.provider_count),open_work:Number(row.open_work_count),plans:Number(row.plan_count),configured_services:Number(row.configured_service_count)},people,providers,services,plans,work,accessPoints});
-      }
-      } catch (e) {
-        const detail=e instanceof Error?e.message:String(e);
-        return cors(json({ok:false,state:"UNAVAILABLE",code:"DATABASE_ERROR",debug:detail.slice(0,500)},502),request);
-      }
+      const asArray=(value:unknown)=>Array.isArray(value)?value:(typeof value==="string"?JSON.parse(value):[]);
+      const communities=rows.map((row)=>({
+        community:{entity_id:row.community_entity_id,workspace_id:row.workspace_id,name:row.name,purpose:row.purpose,operator_entity_id:row.operator_entity_id,operator_type:row.operator_type,onboarding_state:row.onboarding_state,plan_code:row.plan_code,plan_version:row.plan_version,plan_state:row.plan_state,lifecycle:row.lifecycle,version:row.version},
+        metrics:{people:Number(row.people_count),residents:Number(row.resident_count),workers:Number(row.worker_count),providers:Number(row.provider_count),open_work:Number(row.open_work_count),plans:Number(row.plan_count),configured_services:Number(row.configured_service_count)},
+        people:asArray(row.people_data),providers:asArray(row.providers_data),services:asArray(row.services_data),plans:asArray(row.plans_data),work:asArray(row.work_data),accessPoints:asArray(row.access_points_data)
+      }));
       return cors(json({ok:true,state:"VERIFIED",selected_community_entity_id:selectedCommunityId||communities[0]?.community?.entity_id||null,data:communities,truth:{source:"canonical community operating tables",operator_scope:"authenticated community/organization identity, creator account, or explicit participant operator delegation",membership:"does not imply operating authority",service_control:"LegaKeys",provider_state:"declared/verified separately",authorization:"operational membership never substitutes for consequential authorization"}}),request);
     }
-
     if (request.method === "POST" && url.pathname === "/api/community/roster") {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),participantRef=String(b?.participantRef??""),relationship=String(b?.relationshipType??"MEMBER").toUpperCase();
