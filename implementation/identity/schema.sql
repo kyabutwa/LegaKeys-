@@ -160,4 +160,7 @@ alter table if exists legakeys.account_settings add column if not exists profile
 alter table if exists legakeys.account_settings add column if not exists profile_photo_data text;
 alter table if exists legakeys.account_settings add column if not exists profile_photo_mime text;
 alter table if exists legakeys.account_settings add column if not exists profile_photo_updated_at timestamptz;
-\n-- Session lifecycle indexes for canonical account/session enforcement.\ncreate index if not exists sessions_account_state_idx on legakeys.sessions(account_id,state);\ncreate index if not exists sessions_last_seen_idx on legakeys.sessions(last_seen_at);\n
+
+-- Session lifecycle indexes for canonical account/session enforcement.
+create index if not exists sessions_account_state_idx on legakeys.sessions(account_id,state);
+create index if not exists sessions_last_seen_idx on legakeys.sessions(last_seen_at);
