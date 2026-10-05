@@ -558,3 +558,202 @@ html[data-theme="navy"]{
 
 .foundation-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.foundation-card{position:relative;display:flex;align-items:flex-start;gap:12px;min-height:112px;padding:16px;border:1px solid var(--line);border-radius:20px;background:color-mix(in srgb,var(--surface) 92%,transparent);box-shadow:0 14px 34px rgba(0,0,0,.08);transition:transform .28s ease,box-shadow .28s ease,border-color .28s ease}.foundation-card:hover{transform:translateY(-4px);box-shadow:0 20px 42px rgba(0,0,0,.13);border-color:var(--accent)}.foundation-card>span{font:700 11px/1 var(--mono);letter-spacing:.08em;color:var(--accent);padding-top:2px}.foundation-card>div{min-width:0;display:grid;gap:6px}.foundation-card b{font-size:14px}.foundation-card small{font-size:12px;line-height:1.45;color:var(--muted)}.foundation-card .status{position:absolute;right:12px;bottom:12px;font-size:9px}.foundation-card .status i{width:6px;height:6px}
 @media(max-width:900px){.foundation-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){.foundation-grid{grid-template-columns:1fr}.foundation-card{min-height:100px}}
+
+
+/* ============================================================
+   LegaKeys responsive hardening — desktop/mobile mode contract
+   Content must fit the available viewport; no browser zoom/pan
+   is ever required to read or operate the product.
+   ============================================================ */
+html,body,#root,.app,.main,.content,main,section,article,aside,header,nav,div{
+  min-width:0;
+}
+html,body,#root{
+  max-width:100%;
+  overflow-x:hidden;
+}
+body{
+  width:100%;
+  overflow-x:hidden;
+  -webkit-text-size-adjust:100%;
+}
+img,svg,video,canvas{
+  max-width:100%;
+}
+button,input,textarea,select{
+  max-width:100%;
+}
+button, .nav-item, .service-card, .action-card, .workspace-module, .workspace-item{
+  min-width:0;
+}
+h1,h2,h3,h4,p,b,small,span,em,label{
+  overflow-wrap:anywhere;
+  word-break:normal;
+}
+.content{
+  width:100%;
+  margin-left:auto;
+  margin-right:auto;
+}
+.main{
+  width:100%;
+  max-width:100%;
+}
+.hero>div:first-child,.hero-actions,.section-head>div,.service-card>span:nth-child(2),
+.action-card>span,.workspace-module>div,.workspace-item>div,.data-head>div{
+  min-width:0;
+}
+.service-card small,.service-card b,.action-card b,.action-card small,
+.workspace-module h3,.workspace-module p,.workspace-item b,.workspace-item small,
+.data-head h2,.data-head p,.notice b,.notice p{
+  overflow-wrap:anywhere;
+  white-space:normal;
+}
+.system-flow{
+  grid-template-columns:repeat(7,minmax(0,1fr));
+}
+.system-node{
+  min-width:0;
+  overflow:hidden;
+}
+.system-node b,.system-node small{
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+.foundation-card{
+  min-width:0;
+  overflow:hidden;
+}
+.foundation-card>div{
+  min-width:0;
+}
+.layout-mode-menu{
+  display:grid;
+  gap:7px;
+  padding:9px 0 6px;
+  margin-bottom:4px;
+  border-bottom:1px solid var(--line);
+}
+.layout-mode-menu>b{
+  display:block;
+  font-size:11px;
+  color:var(--navy);
+}
+.layout-mode-menu>small{
+  display:block;
+  font-size:9px;
+  line-height:1.4;
+  color:#7a8798;
+}
+.layout-options{
+  display:grid!important;
+  grid-template-columns:1fr 1fr;
+  gap:6px!important;
+}
+.layout-options button{
+  justify-content:center!important;
+  border:1px solid var(--line)!important;
+  background:var(--theme-surface-2,#f5f7f9)!important;
+  color:var(--theme-text,var(--navy))!important;
+  padding:9px 7px!important;
+  white-space:normal!important;
+  line-height:1.15;
+}
+.layout-options button.selected{
+  background:var(--theme-accent-soft,#effcf5)!important;
+  color:var(--theme-text,var(--navy))!important;
+  border-color:rgba(88,214,141,.45)!important;
+}
+@media(max-width:1100px){
+  .system-flow{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .landing-hero{grid-template-columns:1fr;gap:28px}
+  .hero-orbit{min-height:280px;height:clamp(280px,55vw,390px)}
+  .landing-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .landing-rail{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:800px){
+  html[data-layout="mobile"] .topbar,
+  html[data-layout="desktop"] .topbar{
+    padding-left:max(10px,env(safe-area-inset-left));
+    padding-right:max(10px,env(safe-area-inset-right));
+  }
+  html[data-layout="mobile"] .sidebar{display:none!important}
+  html[data-layout="mobile"] .bottom-nav{display:flex!important}
+  html[data-layout="mobile"] .main{padding-left:0!important;padding-top:64px!important;padding-bottom:calc(70px + env(safe-area-inset-bottom))!important}
+  html[data-layout="mobile"] .content{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));}
+  html[data-layout="mobile"] .hero h1{font-size:clamp(30px,9vw,38px);max-width:100%}
+  html[data-layout="mobile"] .feature-grid,
+  html[data-layout="mobile"] .workspace-grid,
+  html[data-layout="mobile"] .workspace-columns{grid-template-columns:minmax(0,1fr)}
+  html[data-layout="mobile"] .action-grid,
+  html[data-layout="mobile"] .service-grid,
+  html[data-layout="mobile"] .service-grid.wide{grid-template-columns:minmax(0,1fr)}
+  html[data-layout="mobile"] .system-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+  html[data-layout="mobile"] .landing-main{padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+  html[data-layout="mobile"] .landing-bar{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}
+  html[data-layout="mobile"] .landing-actions .landing-link{display:none}
+  html[data-layout="mobile"] .landing-copy h1{font-size:clamp(42px,13vw,64px)}
+  html[data-layout="mobile"] .landing-rail,
+  html[data-layout="mobile"] .landing-cards{grid-template-columns:minmax(0,1fr)}
+  html[data-layout="mobile"] .landing-section{padding-top:64px}
+  html[data-layout="mobile"] .landing-bottom{display:grid}
+  html[data-layout="mobile"] .landing-bottom .landing-primary{width:100%}
+
+  /* Desktop mode remains a work-oriented shell, but is still physically
+     constrained on narrow displays so it can never create horizontal overflow. */
+  html[data-layout="desktop"] .sidebar{
+    display:block!important;
+    width:min(210px,42vw);
+  }
+  html[data-layout="desktop"] .main{
+    padding-left:min(210px,42vw)!important;
+    padding-top:64px!important;
+    padding-bottom:30px!important;
+  }
+  html[data-layout="desktop"] .content{
+    padding:26px max(12px,2.5vw) 50px;
+  }
+  html[data-layout="desktop"] .topbar{
+    height:64px;
+    gap:6px;
+  }
+  html[data-layout="desktop"] .brand{min-width:0;max-width:145px}
+  html[data-layout="desktop"] .brand-name{font-size:15px}
+  html[data-layout="desktop"] .context-wrap{display:none}
+  html[data-layout="desktop"] .top-actions{gap:1px}
+  html[data-layout="desktop"] .search{width:36px;padding:0;justify-content:center;background:transparent;border-color:transparent}
+  html[data-layout="desktop"] .search span,
+  html[data-layout="desktop"] .search kbd{display:none}
+  html[data-layout="desktop"] .identity-chip svg{display:none}
+  html[data-layout="desktop"] .feature-grid,
+  html[data-layout="desktop"] .workspace-grid,
+  html[data-layout="desktop"] .workspace-columns{grid-template-columns:minmax(0,1fr)}
+  html[data-layout="desktop"] .action-grid,
+  html[data-layout="desktop"] .service-grid,
+  html[data-layout="desktop"] .service-grid.wide{grid-template-columns:repeat(2,minmax(0,1fr))}
+  html[data-layout="desktop"] .system-flow{grid-template-columns:repeat(2,minmax(0,1fr))}
+  html[data-layout="desktop"] .bottom-nav{display:none!important}
+}
+@media(max-width:520px){
+  .topbar .brand-image,.topbar .brand-image img{width:34px;height:34px}
+  .topbar .brand-name{font-size:15px}
+  .top-actions .identity-chip{padding-right:4px}
+  .top-actions .identity-chip .avatar{width:27px;height:27px}
+  .hero-actions{width:100%;min-width:0;flex-wrap:wrap}
+  .hero-actions .primary{max-width:100%;white-space:normal}
+  .feature{min-width:0;padding:18px}
+  .system-rail{padding:15px}
+  .system-flow{gap:6px}
+  .system-node{padding:9px 8px}
+  .system-node b{font-size:9px}
+  .system-node small{font-size:8px}
+  .data-items{grid-template-columns:minmax(0,1fr)!important}
+  .data-items>div:nth-child(odd){border-right:0}
+  .workspace-switcher{width:100%;max-width:100%;overflow:hidden}
+  .workspace-switcher button{min-width:0;overflow-wrap:anywhere}
+  .overlay{padding-left:max(10px,env(safe-area-inset-left));padding-right:max(10px,env(safe-area-inset-right))}
+  .auth-modal,.identity-pop,.settings-modal,.command{max-width:100%;min-width:0}
+}
+@media(prefers-reduced-motion:reduce){
+  .landing-capability-card{animation:none!important}
+}
