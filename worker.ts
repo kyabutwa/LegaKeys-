@@ -13,7 +13,8 @@ type Row = Record<string, unknown>;
 
 // Canonical data reads fail closed without a bound session. Final production boundary verification.
 const SESSION_COOKIE="__Host-legakeys_session";
-const SESSION_TTL_SECONDS=604800;\nconst SESSION_IDLE_SECONDS=86400;
+const SESSION_TTL_SECONDS=604800;
+const SESSION_IDLE_SECONDS=86400;
 function requestOriginAllowed(request:Request){const origin=request.headers.get("Origin");return !origin||origin===new URL(request.url).origin}
 function cookieValue(request:Request,name:string){const raw=request.headers.get("Cookie")??"";for(const part of raw.split(";")){const [key,...rest]=part.trim().split("=");if(key===name)return rest.join("=")||null}return null}
 function bytesToBase64Url(bytes:Uint8Array){let b="";for(const x of bytes)b+=String.fromCharCode(x);return btoa(b).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
@@ -337,13 +338,22 @@ async function api(request: Request, env: Env): Promise<Response> {
     if(request.method==="POST"&&url.pathname==="/api/account/close"){
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);await query(env,"update legakeys.credentials set state='REVOKED',revoked_at=now(),updated_at=now()where account_id=$1",[r.account_id]);await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now()where account_id=$1",[r.account_id]);await query(env,"update legakeys.participants set state='SUSPENDED',updated_at=now()where identity_id=$1 and state='ACTIVE'",[r.identity_id]);await query(env,"update legakeys.accounts set state='CLOSED',updated_at=now()where account_id=$1",[r.account_id]);const out=cors(json({ok:true,state:"CLOSED"}),request),h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie("",0));return new Response(out.body,{status:out.status,headers:h});
     }
-    if(request.method==="GET"&&url.pathname==="/api/session"){\n      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);\n      const sessions=await query(env,"select session_id,state,created_at,last_seen_at,expires_at,revoked_at from legakeys.sessions where account_id=$1 order by created_at desc",[session.account_id]);\n      return cors(json({ok:true,state:"AUTHENTICATED",data:{current_session_id:session.session_id,sessions}}),request);\n    }\n    if(request.method==="POST"&&url.pathname==="/api/session/revoke-all"){
+    if(request.method==="GET"&&url.pathname==="/api/session"){
+      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const sessions=await query(env,"select session_id,state,created_at,last_seen_at,expires_at,revoked_at from legakeys.sessions where account_id=$1 order by created_at desc",[session.account_id]);
+      return cors(json({ok:true,state:"AUTHENTICATED",data:{current_session_id:session.session_id,sessions}}),request);
+    }
+    if(request.method==="POST"&&url.pathname==="/api/session/revoke-all"){
       const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now() where account_id=$1 and session_id<>$2 and state='ACTIVE'",[session.account_id,session.session_id]);
       return cors(json({ok:true,state:"OTHER_SESSIONS_REVOKED"}),request);
     }
     if(request.method==="POST"&&url.pathname==="/api/session/revoke"){
-      const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);const b=await request.json().catch(()=>null) as any,id=String(b?.session_id??"");if(!id)return cors(json({ok:false,state:"INVALID_INPUT",code:"SESSION_ID_REQUIRED"},400),request);const revoked=await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now() where session_id=$1 and account_id=$2 and state='ACTIVE' returning session_id",[id,r.account_id]);\n      if(!revoked.length)return cors(json({ok:false,state:"NOT_FOUND",code:"SESSION_NOT_ACTIVE"},404),request);\n      const out=cors(json({ok:true,state:"REVOKED",session_id:id,current_session:id===r.session_id}),request);\n      if(id===r.session_id){const h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie("",0));return new Response(out.body,{status:out.status,headers:h});}\n      return out;
+      const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);const b=await request.json().catch(()=>null) as any,id=String(b?.session_id??"");if(!id)return cors(json({ok:false,state:"INVALID_INPUT",code:"SESSION_ID_REQUIRED"},400),request);const revoked=await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now() where session_id=$1 and account_id=$2 and state='ACTIVE' returning session_id",[id,r.account_id]);
+      if(!revoked.length)return cors(json({ok:false,state:"NOT_FOUND",code:"SESSION_NOT_ACTIVE"},404),request);
+      const out=cors(json({ok:true,state:"REVOKED",session_id:id,current_session:id===r.session_id}),request);
+      if(id===r.session_id){const h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie("",0));return new Response(out.body,{status:out.status,headers:h});}
+      return out;
     }
     if (request.method === "GET" && url.pathname === "/api/services") {
       const rows = await query(env, "select service_id, beat_code, canonical_name, description, lifecycle_state, truth_state, native_or_provider_mode, provenance, updated_at from legakeys.services order by canonical_name");
