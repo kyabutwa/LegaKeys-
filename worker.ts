@@ -176,6 +176,7 @@ async function api(request: Request, env: Env): Promise<Response> {
       if (purpose.length < 2 || purpose.length > 500) return cors(json({ok:false,code:"INVALID_COMMUNITY_PURPOSE",message:"Community purpose must be between 2 and 500 characters."},400),request);
       if (operatorType==="ORGANIZATION" && (organizationName.length < 2 || organizationName.length > 160)) return cors(json({ok:false,code:"INVALID_ORGANIZATION_NAME",message:"Organization name must be between 2 and 160 characters."},400),request);
       const participantId = String(session.participant_id ?? "");
+      const joinCode = `LK-${crypto.randomUUID().replace(/-/g,"").slice(0,10).toUpperCase()}`;
       const ids = {entity:crypto.randomUUID(), identity:crypto.randomUUID(), workspace:crypto.randomUUID(), membership:crypto.randomUUID(), operator:crypto.randomUUID(), operatorIdentity:crypto.randomUUID()};
       const rows = await query(env, `
         with principal as (
@@ -216,7 +217,7 @@ async function api(request: Request, env: Env): Promise<Response> {
           insert into legakeys.community_profiles(community_entity_id,workspace_id,operator_entity_id,operator_type,onboarding_state,plan_code,plan_version,plan_state,governance_mode,service_policy,settings)
           select $5::uuid,w.id,coalesce((select entity_id from oe),$5::uuid),$6::text,'ACTIVE','COMMUNITY','1.0','DRAFT','EXPLICIT_AUTHORIZATION',
                  '{"platform_controlled":true,"community_can_configure":true,"community_can_disable_platform_service":false}'::jsonb,
-                 jsonb_build_object('created_by_participant',$1::text)
+                 jsonb_build_object('created_by_participant',$1::text,'join_code',$11::text)
           from w
           returning workspace_id
         ), rel as (
@@ -235,7 +236,38 @@ async function api(request: Request, env: Env): Promise<Response> {
         limit 1
       `,[participantId,name,ids.operator,ids.operatorIdentity,ids.entity,operatorType,organizationName,ids.workspace,purpose,ids.membership]);
       if(!rows[0]) return cors(json({ok:false,code:"COMMUNITY_CREATE_FAILED",message:"The participant could not create a community space."},400),request);
-      return cors(json({ok:true,state:"CREATED",community_entity_id:rows[0].community_entity_id,operator_entity_id:rows[0].operator_entity_id,operator_type:rows[0].operator_type,workspace_id:rows[0].workspace_id,role:"COMMUNITY_INITIATOR",truth:{community_space:"created",operator:"declared",authority:"not granted by creation",membership:"explicit",platform_services:"LegaKeys-controlled"}}),request);
+      return cors(json({ok:true,state:"CREATED",community_entity_id:rows[0].community_entity_id,operator_entity_id:rows[0].operator_entity_id,operator_type:rows[0].operator_type,workspace_id:rows[0].workspace_id,join_code:joinCode,role:"COMMUNITY_INITIATOR",truth:{community_space:"created",operator:"declared",authority:"not granted by creation",membership:"explicit",platform_services:"LegaKeys-controlled"}}),request);
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/community/join") {
+      const session=await canonicalSession(env,request);
+      if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED",message:"Join requires a canonical LegaKeys participant account."},401),request);
+      const b=await request.json().catch(()=>({})) as any;
+      const code=String(b?.inviteCode??"").trim().toUpperCase();
+      if(!code)return cors(json({ok:false,code:"INVITATION_CODE_REQUIRED",message:"Enter the community invitation code."},400),request);
+      const participantId=String(session.participant_id??"");
+      const rows=await query(env,`
+        select cp.community_entity_id,cp.workspace_id,w.name,w.purpose,cp.operator_type
+        from legakeys.community_profiles cp
+        join legakeys.workspaces w on w.id=cp.workspace_id
+        where cp.onboarding_state='ACTIVE' and w.lifecycle='ACTIVE'
+          and upper(coalesce(cp.settings->>'join_code',''))=$1
+        limit 1
+      `,[code]);
+      if(!rows.length)return cors(json({ok:false,code:"INVALID_INVITATION_CODE",message:"That community invitation code is invalid or no longer active."},404),request);
+      const community=rows[0];
+      const existing=await query(env,`select id,status from legakeys.workspace_memberships where workspace_id=$1 and participant_ref=$2 and status in ('ACTIVE','INVITED') order by created_at desc limit 1`,[community.workspace_id,participantId]);
+      if(existing.length)return cors(json({ok:true,state:"ALREADY_MEMBER",community:{entity_id:community.community_entity_id,workspace_id:community.workspace_id,name:community.name,purpose:community.purpose},membership_status:existing[0].status,truth:{membership:"existing",authority:"not implied"}}),request);
+      const membershipId=crypto.randomUUID();
+      const rosterId=crypto.randomUUID();
+      await query(env,`with m as (
+        insert into legakeys.workspace_memberships(id,workspace_id,participant_ref,role,status,scope_ref,valid_from,created_at,updated_at)
+        values($1,$2,$3,'COMMUNITY_MEMBER','ACTIVE',$4,now(),now(),now())
+        returning workspace_id
+      )
+      insert into legakeys.community_roster(id,community_entity_id,participant_ref,relationship_type,state,scope_ref,source_reference)
+      values($5,$4,$3,'MEMBER','ACTIVE',$4,'participant-community-join')`,[membershipId,community.workspace_id,participantId,community.community_entity_id,rosterId]);
+      return cors(json({ok:true,state:"JOINED",community:{entity_id:community.community_entity_id,workspace_id:community.workspace_id,name:community.name,purpose:community.purpose},role:"COMMUNITY_MEMBER",truth:{membership:"active",authority:"not implied",consequential_actions:"authorization required"}}),request);
     }
 
     if (request.method === "GET" && url.pathname === "/api/community-ops") {
