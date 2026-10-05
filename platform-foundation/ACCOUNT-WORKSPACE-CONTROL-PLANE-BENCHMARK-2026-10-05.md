@@ -2,6 +2,8 @@
 Date: 2026-10-05
 Status: Canonical product architecture input
 
+CI verification: production gate must be green before release.
+
 ## Benchmark set
 USA: Apple, Google, Microsoft, GitHub, Slack, Notion, Linear, Atlassian, Salesforce, ServiceNow, Stripe, AWS, Okta, 1Password, Uber.
 
