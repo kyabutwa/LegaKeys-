@@ -12,6 +12,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/0000_canonical_runtime_contr
 
 schema_files=(
   implementation/identity/schema.sql
+  implementation/identity/evidence-and-biometric-schema.sql
   implementation/world/schema.sql
   implementation/context/schema.sql
   implementation/capability/schema.sql
