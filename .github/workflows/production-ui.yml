@@ -3,6 +3,7 @@ name: LegaKeys Production UI
 # Identity FK guard corrected for PostgreSQL reruns.
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -41,7 +42,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - run: npm ci
       - run: npm run build
       - name: Apply canonical Neon schema
         env:
