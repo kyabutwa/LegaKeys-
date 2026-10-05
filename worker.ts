@@ -754,3 +754,5 @@ export default {
     return env.ASSETS.fetch(request);
   }
 };
+
+// Production build verification marker: canonical source is newline-normalized.
