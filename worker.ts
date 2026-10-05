@@ -493,7 +493,7 @@ async function api(request: Request, env: Env): Promise<Response> {
         from legakeys.community_profiles cp
         join legakeys.workspaces w on w.id=cp.workspace_id
         left join legakeys.workspace_memberships wm on wm.workspace_id=w.id and ($1='' or wm.participant_ref=nullif($1,'')::uuid) and wm.status='ACTIVE'
-        where ($5='' or cp.community_entity_id=$5::uuid) and (
+        where ($5='' or cp.community_entity_id=nullif($5,'')::uuid) and (
           (wm.id is not null and wm.role in ('COMMUNITY_OPERATOR','COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))
           or (cp.operator_entity_id=$3::uuid and cp.operator_type=$2)
           or (cp.settings->>'created_by_account')=$4
