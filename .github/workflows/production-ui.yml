@@ -2,6 +2,10 @@ name: LegaKeys Production UI
 # Canonical migration runner is intentionally rerunnable against the existing production database.
 # Identity FK guard corrected for PostgreSQL reruns.
 
+concurrency:
+  group: legakeys-production-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
   push:
