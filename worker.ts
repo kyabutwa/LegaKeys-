@@ -276,11 +276,13 @@ async function api(request: Request, env: Env): Promise<Response> {
       return cors(json({ ok: true, state: "VERIFIED", data: rows }), request);
     }
     if (request.method === "GET" && url.pathname === "/api/places") {
-      const rows = await query(env, "select place_id, entity_id, place_type, parent_place_id, canonical_name, display_name, description, address_line, country_code, region_code, city_name, latitude, longitude, location_precision_m, lifecycle_state, effective_from, effective_to, updated_at from legakeys.places order by canonical_name");
+      const session = await canonicalSession(env, request); if (!session) return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const rows = await query(env, "select place_id, entity_id, place_type, parent_place_id, canonical_name, display_name, description, address_line, country_code, region_code, city_name, latitude, longitude, location_precision_m, lifecycle_state, effective_from, effective_to, updated_at from legakeys.places where lifecycle_state='ACTIVE' order by canonical_name");
       return cors(json({ ok: true, state: "VERIFIED", data: rows }), request);
     }
     if (request.method === "GET" && url.pathname === "/api/activity") {
-      const rows = await query(env, "select id, event_source, event_version, event_type, action_id, execution_id, actor_id, principal_id, subject_type, subject_id, occurred_at, recorded_at, correlation_id, truth_state, source_type, source_reference from legakeys.events order by occurred_at desc limit 50");
+      const session = await canonicalSession(env, request); if (!session) return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const rows = await query(env, "select id, event_source, event_version, event_type, action_id, execution_id, actor_id, principal_id, subject_type, subject_id, occurred_at, recorded_at, correlation_id, truth_state, source_type, source_reference from legakeys.events where principal_id=$1 or subject_id=$1 order by occurred_at desc limit 50", [session.participant_id]);
       return cors(json({ ok: true, state: "VERIFIED", data: rows }), request);
     }
     if (request.method === "POST" && url.pathname === "/api/community/create") {
