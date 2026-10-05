@@ -44,6 +44,9 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: |
           test -n "$DATABASE_URL" || { echo "NEON_DATABASE_URL GitHub secret is required"; exit 1; }
+          # Normalize accidental CR/LF introduced when copying the Neon URL from the dashboard.
+          DATABASE_URL="$(printf "%s" "$DATABASE_URL" | tr -d "\r\n")"
+          export DATABASE_URL
           chmod +x database/apply-canonical-schema.sh
           ./database/apply-canonical-schema.sh
 
@@ -53,6 +56,8 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: |
           test -n "$DATABASE_URL" || { echo "NEON_DATABASE_URL GitHub secret is required"; exit 1; }
+          DATABASE_URL="$(printf "%s" "$DATABASE_URL" | tr -d "\r\n")"
+          export DATABASE_URL
           printf '%s' "$DATABASE_URL" | npx wrangler secret put DATABASE_URL
 
       - name: Deploy production Worker
