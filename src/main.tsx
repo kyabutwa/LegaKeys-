@@ -37,7 +37,7 @@ function LegaKeysSplash(){
  const[leaving,setLeaving]=useState(false);
  useEffect(()=>{const t=window.setTimeout(()=>setLeaving(true),2100);return()=>window.clearTimeout(t)},[]);
  return <div className={"legakeys-splash "+(leaving?"leaving":"")} role="status" aria-label="LegaKeys">
-   <div className="splash-core"><div className="splash-aura"/><img src="/legakeys-logo-transparent.svg" alt="LegaKeys" className="splash-logo"/><div className="splash-welcome"><span>Sois le bienvenu</span><span>Welcome</span></div></div>
+   <div className="splash-core"><div className="splash-aura"/><img src="/legakeys-logo-transparent.svg" alt="LegaKeys" className="splash-logo"/><div className="splash-welcome"><span>Soyez le bienvenu</span><span>Welcome Home</span></div></div>
  </div>
 }
 function Landing({onEnter}:{onEnter:()=>void}){
