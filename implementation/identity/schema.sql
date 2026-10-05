@@ -62,7 +62,22 @@ create table if not exists legakeys.credentials (
   unique (account_id, credential_type, subject_reference)
 );
 
-alter table legakeys.accounts add constraint accounts_primary_credential_fk foreign key (primary_credential_id) references legakeys.credentials(credential_id) deferrable initially deferred;
+DO $
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'accounts_primary_credential_fk'
+      AND conrelid = 'legakeys.accounts'::regclass
+  ) THEN
+    ALTER TABLE legakeys.accounts
+      ADD CONSTRAINT accounts_primary_credential_fk
+      FOREIGN KEY (primary_credential_id)
+      REFERENCES legakeys.credentials(credential_id)
+      DEFERRABLE INITIALLY DEFERRED;
+  END IF;
+END
+$;
 
 create table if not exists legakeys.sessions (
   session_id uuid primary key default gen_random_uuid(),
