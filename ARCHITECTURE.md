@@ -1,5 +1,7 @@
 # LEGAKEYS — MASTER ARCHITECTURE
 
+> **CANONICAL NOTICE (2026-10-06):** The authoritative platform model is [CANONICAL_PLATFORM_MODEL.md](./CANONICAL_PLATFORM_MODEL.md). This document remains the detailed domain catalog and implementation reference. Foundational semantics in the canonical model take precedence over older domain naming.
+
 ## Brand
 
 **UNITED OF BALEGA**  
