@@ -487,10 +487,13 @@ async function api(request: Request, env: Env): Promise<Response> {
         from legakeys.community_profiles cp
         join legakeys.workspaces w on w.id=cp.workspace_id
         left join legakeys.workspace_memberships wm on wm.workspace_id=w.id and wm.participant_ref=$1 and wm.status='ACTIVE'
-        where wm.id is not null
-           or (cp.operator_entity_id=$3::uuid and cp.operator_type=$2 and $3<>'')
+        where (
+          (wm.id is not null and wm.role in ('COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))
+          or (cp.operator_entity_id=$3::uuid and cp.operator_type=$2 and $3<>'')
+          or (cp.settings->>'created_by_account')=$4
+        )
         order by cp.updated_at desc
-      `,[participantId,identityType,identityEntityId]);
+      `,[participantId,identityType,identityEntityId,String(session.account_id ?? "")]);
       const communities=[];
       for(const row of rows){
         const people=await query(env,`select cr.id,cr.participant_ref,cr.relationship_type,cr.state,cr.scope_ref,cr.effective_from,cr.effective_until from legakeys.community_roster cr where cr.community_entity_id=$1 order by cr.updated_at desc limit 50`,[row.community_entity_id]);
