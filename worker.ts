@@ -28,7 +28,7 @@ async function canonicalSession(env:Env,request:Request):Promise<Row|null>{const
 function publicAccount(r:Row){return {account_id:r.account_id,account_state:r.account_state,identity_id:r.identity_id,identity_type:r.identity_type,verification_state:r.verification_state,person:{person_id:r.person_id,legal_name:r.legal_name,display_name:r.display_name},photo:{data:r.profile_photo_data||null,mime:r.profile_photo_mime||null},participant:{participant_id:r.participant_id,state:r.participant_state},participation:{participation_id:r.participation_id,context_entity_id:r.context_entity_id,state:r.participation_state,scope:r.scope}}}
 
 async function communityOperatorScope(env:Env,session:Row,communityId:string,workspaceId=""){
-  const rows=await query(env,`select cp.community_entity_id,cp.workspace_id,cp.operator_entity_id,cp.operator_type from legakeys.community_profiles cp join legakeys.workspaces w on w.id=cp.workspace_id and w.lifecycle='ACTIVE' where cp.community_entity_id=$1 and ($2='' or cp.workspace_id=$2) and ((cp.settings->>'created_by_account')=$3 or (cp.operator_entity_id=$4::uuid and cp.operator_type=$5) or exists (select 1 from legakeys.workspace_memberships wm where wm.workspace_id=cp.workspace_id and wm.participant_ref=$6 and wm.status='ACTIVE' and wm.role in ('COMMUNITY_OPERATOR','COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))) limit 1`,[communityId,workspaceId,String(session.account_id??""),String(session.entity_id??""),String(session.identity_type??""),String(session.participant_id??"")]);
+  const rows=await query(env,`select cp.community_entity_id,cp.workspace_id,cp.operator_entity_id,cp.operator_type from legakeys.community_profiles cp join legakeys.workspaces w on w.id=cp.workspace_id and w.lifecycle='ACTIVE' where cp.community_entity_id=$1 and ($2='' or cp.workspace_id=$2) and ((cp.settings->>'created_by_account')=$3 or (cp.operator_entity_id=$4::uuid and cp.operator_type=$5) or exists (select 1 from legakeys.workspace_memberships wm where wm.workspace_id=cp.workspace_id and $6<>'' and wm.participant_ref=$6::uuid and wm.status='ACTIVE' and wm.role in ('COMMUNITY_OPERATOR','COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))) limit 1`,[communityId,workspaceId,String(session.account_id??""),String(session.entity_id??""),String(session.identity_type??""),String(session.participant_id??"")]);
   return rows[0]??null;
 }
 
@@ -492,7 +492,7 @@ async function api(request: Request, env: Env): Promise<Response> {
                (select count(*) from legakeys.community_service_config csc where csc.community_entity_id=cp.community_entity_id) as configured_service_count
         from legakeys.community_profiles cp
         join legakeys.workspaces w on w.id=cp.workspace_id
-        left join legakeys.workspace_memberships wm on wm.workspace_id=w.id and wm.participant_ref=$1 and wm.status='ACTIVE'
+        left join legakeys.workspace_memberships wm on wm.workspace_id=w.id and ($1='' or wm.participant_ref=$1::uuid) and wm.status='ACTIVE'
         where ($5='' or cp.community_entity_id=$5::uuid) and (
           (wm.id is not null and wm.role in ('COMMUNITY_OPERATOR','COMMUNITY_INITIATOR','COMMUNITY_MANAGER','COMMUNITY_OWNER','COMMUNITY_ADMIN'))
           or (cp.operator_entity_id=$3::uuid and cp.operator_type=$2)
