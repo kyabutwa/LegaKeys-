@@ -5,6 +5,122 @@ import"./styles.css";
 
 type Section="Home"|"Places"|"Services"|"Access"|"Payments"|"Activity"|"Workspaces"|"Identity"|"Intelligence"|"World"|"Execution";
 const nav:[Section,React.ElementType][]= [["Home",Home],["Places",MapPin],["Services",Layers3],["Access",KeyRound],["Payments",WalletCards],["Activity",Activity]];
+
+type LegaLanguage="en"|"fr"|"sw"|"lg"|"es"|"ar";
+const LANGUAGE_OPTIONS:{code:LegaLanguage;label:string;native:string;dir:"ltr"|"rtl"}[]=[
+ {code:"en",label:"English",native:"English",dir:"ltr"},
+ {code:"fr",label:"French",native:"Français",dir:"ltr"},
+ {code:"sw",label:"Swahili",native:"Kiswahili",dir:"ltr"},
+ {code:"lg",label:"Kilega",native:"Kilega",dir:"ltr"},
+ {code:"es",label:"Latino",native:"Español (Latino)",dir:"ltr"},
+ {code:"ar",label:"Arabic",native:"العربية",dir:"rtl"}
+];
+const UI_TRANSLATIONS:Record<LegaLanguage,Record<string,string>>={
+ en:{},
+ fr:{
+  "Welcome Home":"Bienvenue chez vous","Soyez le bienvenu":"Bienvenue chez vous","Your identity. Your world. One ecosystem.":"Votre identité. Votre monde. Un seul écosystème.",
+  "Join as a Participant":"Rejoindre en tant que participant","Join a Community":"Rejoindre une communauté","Join as a Community":"Rejoindre en tant que communauté",
+  "Build your identity and enter LegaKeys as a person.":"Créez votre identité et entrez dans LegaKeys en tant que personne.",
+  "Enter a community where your participation and scope are explicit.":"Rejoignez une communauté où votre participation et votre périmètre sont explicites.",
+  "Create a governed community space for residents, workers, providers, services, maintenance and plans.":"Établissez un espace communautaire gouverné pour les résidents, travailleurs, prestataires, services, maintenance et plans.",
+  "Choose your way in":"Choisissez votre voie d'accès","Identity":"Identité","World":"Monde","Services":"Services","Intelligence":"Intelligence",
+  "People":"Personnes","Places":"Lieux","Operations":"Opérations","No Authorization → No Consequential Action.":"Aucune autorisation → Aucune action conséquente.",
+  "Search":"Rechercher","Settings & account":"Paramètres et compte","Help & guidance":"Aide et accompagnement","Security & sessions":"Sécurité et sessions",
+  "Navigate":"Navigation","Deep LegaKeys":"LegaKeys approfondi","Home":"Accueil","Access":"Accès","Payments":"Paiements","Activity":"Activité","Workspaces":"Espaces de travail",
+  "Current context":"Contexte actuel","Choose a context":"Choisir un contexte","Personal":"Personnel","Community":"Communauté","Declared":"Déclaré",
+  "Appearance":"Apparence","Dark":"Sombre","White":"Blanc","Navy":"Bleu nuit","Interface mode":"Mode d'interface","Desktop mode":"Mode bureau","Mobile mode":"Mode mobile",
+  "Back":"Retour","Back to":"Retour à","Ask Constantyna":"Demander à Constantyna","Good to see you":"Heureux de vous revoir","Neon connected":"Neon connecté","Checking Neon":"Vérification de Neon",
+  "Explore LegaKeys":"Explorer LegaKeys","View all":"Tout voir","View all services":"Voir tous les services","Governed by design":"Gouverné par conception",
+  "Authorization remains the execution boundary.":"L'autorisation reste la limite d'exécution."
+ },
+ sw:{
+  "Welcome Home":"Karibu nyumbani","Join as a Participant":"Jiunge kama mshiriki","Join a Community":"Jiunge na jumuiya","Join as a Community":"Jiunge kama jumuiya",
+  "Build your identity and enter LegaKeys as a person.":"Jenga utambulisho wako na uingie LegaKeys kama mtu.",
+  "Enter a community where your participation and scope are explicit.":"Ingia katika jumuiya ambapo ushiriki na mipaka yako iko wazi.",
+  "Choose your way in":"Chagua njia yako ya kuingia","Identity":"Utambulisho","World":"Dunia","Services":"Huduma","Intelligence":"Akili",
+  "People":"Watu","Places":"Maeneo","Operations":"Uendeshaji","Access":"Ufikiaji","Payments":"Malipo","Activity":"Shughuli","Workspaces":"Nafasi za kazi",
+  "Home":"Nyumbani","Search":"Tafuta","Settings & account":"Mipangilio na akaunti","Help & guidance":"Msaada na mwongozo","Security & sessions":"Usalama na vipindi",
+  "Navigate":"Abiri","Current context":"Muktadha wa sasa","Choose a context":"Chagua muktadha","Personal":"Binafsi","Community":"Jumuiya","Declared":"Imetangazwa",
+  "Appearance":"Mwonekano","Dark":"Giza","White":"Nyeupe","Navy":"Bluu ya giza","Interface mode":"Hali ya kiolesura","Desktop mode":"Hali ya kompyuta","Mobile mode":"Hali ya simu",
+  "Ask Constantyna":"Muulize Constantyna","Good to see you":"Nafurahi kukuona","Neon connected":"Neon imeunganishwa","Checking Neon":"Inakagua Neon",
+  "Explore LegaKeys":"Chunguza LegaKeys","View all":"Tazama yote","Governed by design":"Imeundwa kwa utawala","Authorization remains the execution boundary.":"Idhini ndiyo mpaka wa utekelezaji.",
+  "No Authorization → No Consequential Action.":"Hakuna idhini → Hakuna hatua yenye matokeo."
+ },
+ lg:{
+  "Welcome Home":"Samba Balega","Identity":"Kitambulisho","World":"Igulu","Services":"Mikolo","People":"Bantu","Community":"Bantu","Home":"Kulia",
+  "Search":"Londa","Settings & account":"Mitema na akaunti","Help & guidance":"Lusango","Access":"Kwingila","Payments":"Mikolo ya malipo",
+  "Activity":"Mikolo","Places":"Mbalo","Operations":"Mikolo ya mulimo","Intelligence":"Bumanyi","Navigate":"Kwingila",
+  "Join as a Participant":"Samba nga mushiriki","Join a Community":"Samba mu bantu","Join as a Community":"Samba nga bantu"
+ },
+ es:{
+  "Welcome Home":"Bienvenido a casa","Join as a Participant":"Unirse como participante","Join a Community":"Unirse a una comunidad","Join as a Community":"Unirse como comunidad",
+  "Build your identity and enter LegaKeys as a person.":"Crea tu identidad y entra en LegaKeys como persona.",
+  "Enter a community where your participation and scope are explicit.":"Entra en una comunidad donde tu participación y alcance sean claros.",
+  "Choose your way in":"Elige cómo entrar","Identity":"Identidad","World":"Mundo","Services":"Servicios","Intelligence":"Inteligencia",
+  "People":"Personas","Places":"Lugares","Operations":"Operaciones","Home":"Inicio","Access":"Acceso","Payments":"Pagos","Activity":"Actividad","Workspaces":"Espacios de trabajo",
+  "Search":"Buscar","Settings & account":"Configuración y cuenta","Help & guidance":"Ayuda y orientación","Security & sessions":"Seguridad y sesiones",
+  "Navigate":"Navegar","Current context":"Contexto actual","Choose a context":"Elegir contexto","Personal":"Personal","Community":"Comunidad","Declared":"Declarado",
+  "Appearance":"Apariencia","Dark":"Oscuro","White":"Blanco","Navy":"Azul marino","Interface mode":"Modo de interfaz","Desktop mode":"Modo escritorio","Mobile mode":"Modo móvil",
+  "Ask Constantyna":"Preguntar a Constantyna","Good to see you":"Qué bueno verte","Neon connected":"Neon conectado","Checking Neon":"Comprobando Neon",
+  "Explore LegaKeys":"Explorar LegaKeys","View all":"Ver todo","Governed by design":"Gobernado por diseño","Authorization remains the execution boundary.":"La autorización sigue siendo el límite de ejecución.",
+  "No Authorization → No Consequential Action.":"Sin autorización → Sin acción consecuente."
+ },
+ ar:{
+  "Welcome Home":"مرحباً بك في بيتك","Join as a Participant":"انضم كمشارك","Join a Community":"انضم إلى مجتمع","Join as a Community":"انضم كمجتمع",
+  "Build your identity and enter LegaKeys as a person.":"أنشئ هويتك وادخل إلى LegaKeys كشخص.",
+  "Enter a community where your participation and scope are explicit.":"ادخل مجتمعاً تكون فيه مشاركتك ونطاقك واضحين.",
+  "Choose your way in":"اختر طريقة الدخول","Identity":"الهوية","World":"العالم","Services":"الخدمات","Intelligence":"الذكاء",
+  "People":"الأشخاص","Places":"الأماكن","Operations":"العمليات","Home":"الرئيسية","Access":"الوصول","Payments":"المدفوعات","Activity":"النشاط","Workspaces":"مساحات العمل",
+  "Search":"بحث","Settings & account":"الإعدادات والحساب","Help & guidance":"المساعدة والإرشاد","Security & sessions":"الأمان والجلسات",
+  "Navigate":"التنقل","Current context":"السياق الحالي","Choose a context":"اختر سياقاً","Personal":"شخصي","Community":"المجتمع","Declared":"مُعلن",
+  "Appearance":"المظهر","Dark":"داكن","White":"أبيض","Navy":"كحلي","Interface mode":"وضع الواجهة","Desktop mode":"وضع سطح المكتب","Mobile mode":"وضع الهاتف",
+  "Ask Constantyna":"اسأل Constantyna","Good to see you":"سعيدون برؤيتك","Neon connected":"Neon متصل","Checking Neon":"جارٍ التحقق من Neon",
+  "Explore LegaKeys":"استكشف LegaKeys","View all":"عرض الكل","Governed by design":"حوكمة حسب التصميم","Authorization remains the execution boundary.":"تبقى الموافقة هي حدّ التنفيذ.",
+  "No Authorization → No Consequential Action.":"لا تفويض → لا إجراء تبعي."
+ }
+};
+function detectLegaLanguage():LegaLanguage{
+ const saved=localStorage.getItem("legakeys-language") as LegaLanguage|null;
+ if(saved&&LANGUAGE_OPTIONS.some(x=>x.code===saved))return saved;
+ const raw=(navigator.language||"en").toLowerCase();
+ if(raw.startsWith("fr"))return "fr"; if(raw.startsWith("sw"))return "sw"; if(raw.startsWith("ar"))return "ar"; if(raw.startsWith("es"))return "es"; return "en";
+}
+function LanguageSwitcher({compact=false}:{compact?:boolean}){
+ const[lang,setLang]=useState<LegaLanguage>(detectLegaLanguage);
+ useEffect(()=>{localStorage.setItem("legakeys-language",lang);document.documentElement.dataset.language=lang;document.documentElement.dir=lang==="ar"?"rtl":"ltr";},[lang]);
+ return <label className={"language-switcher "+(compact?"compact":"")} title="Language">
+   <Globe2 size={15}/><select aria-label="Language" value={lang} onChange={e=>setLang(e.target.value as LegaLanguage)}>
+    {LANGUAGE_OPTIONS.map(x=><option key={x.code} value={x.code}>{x.native}</option>)}
+   </select>
+ </label>
+}
+function installLegaTranslation(){
+ const translate=()=>{
+  const lang=(document.documentElement.dataset.language||"en") as LegaLanguage;
+  const map=UI_TRANSLATIONS[lang]||{};
+  const all=Object.entries(map);
+  const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+  let node:Node|null;
+  while(node=walker.nextNode()){
+   const parent=node.parentElement;
+   if(!parent||["SCRIPT","STYLE","OPTION"].includes(parent.tagName))continue;
+   const raw=node.textContent||"";
+   const canonical=all.find(([en,tr])=>tr===raw)?.[0]||raw;
+   const next=map[canonical];
+   if(next&&next!==raw)node.textContent=next;
+  }
+  document.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>("input,textarea").forEach(el=>{
+   const raw=el.getAttribute("data-lk-placeholder-en")||el.getAttribute("placeholder")||"";
+   if(!el.hasAttribute("data-lk-placeholder-en"))el.setAttribute("data-lk-placeholder-en",raw);
+   const next=map[raw];if(next)el.placeholder=next;
+  });
+ };
+ const observer=new MutationObserver(()=>requestAnimationFrame(translate));
+ observer.observe(document.body,{subtree:true,childList:true,characterData:true});
+ requestAnimationFrame(translate);
+ return()=>observer.disconnect();
+}
+
 const services=[["BeatAccess","Access and entry",ShieldCheck],["BeatHome","Home, household and unit operations",Home],["BeatUtilities","Water, electricity, gas, internet and waste",Settings2],["BeatMaintenance","Maintenance, work orders, inspections and repairs",Wrench],["BeatFacility","Facilities, reservations and availability",Building2],["BeatCommunity","Community life, requests and participation",Users],["BeatVisitor","Visitor invitations, verification and access windows",Handshake],["BeatDelivery","Delivery verification, access and events",Truck],["BeatRide","Mobility discovery, booking and ride events",Car],["BeatPay","Payment intent, authorization and reconciliation",WalletCards],["BeatMarket","Products, services, sellers, orders and fulfillment",ShoppingBag],["BeatFood","Food discovery, menus, orders and delivery",Utensils],["BeatBnB","Listings, availability, bookings and stays",Compass],["BeatHealth","Health service discovery, requests and appointments",HeartPulse],["BeatGenzi","Learning, skills, education and development",GraduationCap],["BeatWork","Work discovery, opportunities, tasks and relationships",BriefcaseBusiness],["BeatGuardian","Safety, assistance, incidents and escalation",ShieldAlert]];
 const deep=[["Workspaces","Operate in authorized scopes",BriefcaseBusiness],["Identity","Identity & participation",KeyRound],["Intelligence","GENESIS + Constantyna",Brain],["World","World + digital twin",Globe2],["Execution","Action → Event → Evidence",Zap]];
 const foundationDomains=[["01","Runtime Contract","Canonical runtime boundary and cutover safety."],["02","Identity","Entity, identity, person, account, credential, session and participant."],["03","World","Places, physical entities, resources, relationships and world state."],["04","Context","Situation, scope, conditions and contextual references."],["05","Capability","Declared ability, scope, conditions, evidence and history."],["06","Authority","Authority sources, scopes, conditions, delegation and evidence."],["07","BeatAccess","Access points, credentials, evaluations, provider results and access events."],["08","BeatVisitor","Invitations, identity evidence, verification and visitor access lifecycle."],["09","Services","17 Beat services, offerings, capabilities, connections, requests, execution and outcomes."],["10","Action / Event / Evidence","Consequential action binding, execution, immutable events and evidence."],["11","GENESIS","Observation, findings, proposals, governed tools and evaluations."],["12","Digital Twin","Twin entities, properties, observations, relationships, transitions and scenarios."],["13","Workspaces","Community Operating and LegaKeys Operations with scoped membership and work."],["14","World Intelligence","Spatial, weather, Earth-system, climate and contextual intelligence."],["15","CONSTANTYNA","Human understanding, intent, needs, context, responses, memory and handoffs."]];
@@ -37,7 +153,7 @@ function LegaKeysSplash(){
  const[leaving,setLeaving]=useState(false);
  useEffect(()=>{const t=window.setTimeout(()=>setLeaving(true),2100);return()=>window.clearTimeout(t)},[]);
  return <div className={"legakeys-splash "+(leaving?"leaving":"")} role="status" aria-label="LegaKeys">
-   <div className="splash-core"><div className="splash-aura"/><img src="/legakeys-logo-transparent.svg" alt="LegaKeys" className="splash-logo"/><div className="splash-welcome"><span>Soyez le bienvenu</span><span>Welcome Home</span></div></div>
+   <div className="splash-core"><div className="splash-aura"/><img src="/legakeys-logo-transparent.svg" alt="LegaKeys" className="splash-logo"/><div className="splash-welcome"><span>Bienvenue chez vous</span><span>Welcome Home</span></div></div>
  </div>
 }
 function Landing({onEnter}:{onEnter:()=>void}){
@@ -67,7 +183,7 @@ function Landing({onEnter}:{onEnter:()=>void}){
  };
 
  return <div className="landing">
-  <header className="landing-bar landing-bar-floating"><div className="landing-bar-side"/><Logo light/><div className="landing-bar-side"/></header>
+  <header className="landing-bar landing-bar-floating"><div className="landing-bar-side"/><Logo light/><div className="landing-bar-side landing-language-slot"><LanguageSwitcher compact/></div></header>
   <main className="landing-main">
    <section className="landing-hero landing-hero-rebuilt">
     <div className="landing-copy">
@@ -136,6 +252,7 @@ function WorkspaceCenter({mode,onMode}:{mode:"COMMUNITY_OPERATING"|"LEGAKEYS_OPE
 }
 function App(){
  const[preview,setPreview]=useState(true);
+ useEffect(()=>installLegaTranslation(),[]);
  const[splash,setSplash]=useState(true);
  useEffect(()=>{const t=window.setTimeout(()=>setSplash(false),2600);return()=>window.clearTimeout(t)},[]);
  const sectionFromLocation=():Section=>{const raw=location.hash.replace(/^#/,"") as Section;return (["Home","Places","Services","Access","Payments","Activity","Workspaces","Identity","Intelligence","World","Execution"] as Section[]).includes(raw)?raw:"Home"};
@@ -182,7 +299,7 @@ function App(){
   if(steps>0)history.go(-steps);
  };
  return <div className={"app layout-"+layoutMode}>
-  <header className="topbar"><button className="mobile-menu icon" onClick={()=>setMenu(!menu)}><Menu size={20}/></button>{canGoBack&&<button className="nav-back" onClick={goBack} aria-label={`Back to ${parentSection}`} title={`Back to ${parentSection}`}><ChevronLeft size={18}/><span>{parentSection}</span></button>}<div className="topbar-logo-centered"><Logo/></div><div className="context-wrap"><button className="context" onClick={()=>setContext(!context)}><span className="context-icon"><MapPin size={15}/></span><span><b>Current context</b><small>Choose a context</small></span><ChevronDown size={15}/></button>{context&&<div className="popover context-pop"><b>Context</b><p>Context changes what LegaKeys can show. It never grants authority.</p><button><UserRound size={15}/>Personal <small>Declared</small></button><button><Building2 size={15}/>Community <small>Not connected</small></button></div>}</div><div className="top-actions"><button className="search" onClick={()=>setSearch(true)}><Search size={17}/><span>Search</span><kbd>⌘ K</kbd></button><button className="icon" onClick={()=>setAssistant(true)}><Sparkles size={18}/></button><button className="icon notification"><Bell size={18}/><i/></button><button className="identity-chip" onClick={()=>setIdentity(true)}><span className="avatar">{(me?.person?.display_name||me?.person?.legal_name||"K").slice(0,1).toUpperCase()}</span><ChevronDown size={13}/></button><button className="icon" onClick={()=>setMore(!more)}><MoreHorizontal size={19}/></button></div>{more&&<div className="popover more-pop"><div className="theme-menu"><b>Appearance</b><small>Choose how LegaKeys looks everywhere.</small><div className="theme-options"><button className={theme==="dark"?"selected":""} onClick={()=>setTheme("dark")}><Moon size={15}/><span>Dark</span></button><button className={theme==="light"?"selected":""} onClick={()=>setTheme("light")}><Sun size={15}/><span>White</span></button><button className={theme==="navy"?"selected":""} onClick={()=>setTheme("navy")}><Palette size={15}/><span>Navy</span></button></div></div><div className="layout-mode-menu" role="group" aria-label="Interface mode"><b>Interface mode</b><small>Desktop for focused work. Mobile for daily use.</small><div className="theme-options layout-options"><button className={layoutMode==="desktop"?"selected":""} onClick={()=>setLayoutMode("desktop")}><BriefcaseBusiness size={15}/><span>Desktop mode</span></button><button className={layoutMode==="mobile"?"selected":""} onClick={()=>setLayoutMode("mobile")}><Home size={15}/><span>Mobile mode</span></button></div></div><button onClick={()=>{setMore(false);setSettings(true)}}><Settings2 size={16}/>Settings & account</button><button onClick={()=>setMore(false)}><CircleHelp size={16}/>Help & guidance</button><button onClick={()=>{setMore(false);setSettings(true)}}><ShieldCheck size={16}/>Security & sessions</button></div>}</header>
+  <header className="topbar"><button className="mobile-menu icon" onClick={()=>setMenu(!menu)}><Menu size={20}/></button>{canGoBack&&<button className="nav-back" onClick={goBack} aria-label={`Back to ${parentSection}`} title={`Back to ${parentSection}`}><ChevronLeft size={18}/><span>{parentSection}</span></button>}<div className="topbar-logo-centered"><Logo/></div><div className="context-wrap"><button className="context" onClick={()=>setContext(!context)}><span className="context-icon"><MapPin size={15}/></span><span><b>Current context</b><small>Choose a context</small></span><ChevronDown size={15}/></button>{context&&<div className="popover context-pop"><b>Context</b><p>Context changes what LegaKeys can show. It never grants authority.</p><button><UserRound size={15}/>Personal <small>Declared</small></button><button><Building2 size={15}/>Community <small>Not connected</small></button></div>}</div><div className="top-actions"><button className="search" onClick={()=>setSearch(true)}><Search size={17}/><span>Search</span><kbd>⌘ K</kbd></button><button className="icon" onClick={()=>setAssistant(true)}><Sparkles size={18}/></button><button className="icon notification"><Bell size={18}/><i/></button><button className="identity-chip" onClick={()=>setIdentity(true)}><span className="avatar">{(me?.person?.display_name||me?.person?.legal_name||"K").slice(0,1).toUpperCase()}</span><ChevronDown size={13}/></button><button className="icon" onClick={()=>setMore(!more)}><MoreHorizontal size={19}/></button></div>{more&&<div className="popover more-pop"><div className="theme-menu"><b>Appearance</b><div className="language-menu"><b>Language</b><small>Choose the interface language for your own LegaKeys experience.</small><LanguageSwitcher/></div><small>Choose how LegaKeys looks everywhere.</small><div className="theme-options"><button className={theme==="dark"?"selected":""} onClick={()=>setTheme("dark")}><Moon size={15}/><span>Dark</span></button><button className={theme==="light"?"selected":""} onClick={()=>setTheme("light")}><Sun size={15}/><span>White</span></button><button className={theme==="navy"?"selected":""} onClick={()=>setTheme("navy")}><Palette size={15}/><span>Navy</span></button></div></div><div className="layout-mode-menu" role="group" aria-label="Interface mode"><b>Interface mode</b><small>Desktop for focused work. Mobile for daily use.</small><div className="theme-options layout-options"><button className={layoutMode==="desktop"?"selected":""} onClick={()=>setLayoutMode("desktop")}><BriefcaseBusiness size={15}/><span>Desktop mode</span></button><button className={layoutMode==="mobile"?"selected":""} onClick={()=>setLayoutMode("mobile")}><Home size={15}/><span>Mobile mode</span></button></div></div><button onClick={()=>{setMore(false);setSettings(true)}}><Settings2 size={16}/>Settings & account</button><button onClick={()=>setMore(false)}><CircleHelp size={16}/>Help & guidance</button><button onClick={()=>{setMore(false);setSettings(true)}}><ShieldCheck size={16}/>Security & sessions</button></div>}</header>
   <aside className={"sidebar "+(menu?"open":"")}><div className="sidebar-scroll"><div className="nav-section"><label>Navigate</label>{nav.map(([name,Icon])=><button key={name} className={"nav-item "+(section===name?"active":"")} onClick={()=>go(name)}><Icon size={18}/><span>{name}</span></button>)}</div><div className="nav-section"><label>Deep LegaKeys</label>{deep.map(([name,desc,Icon])=><button key={name as string} className={"nav-item "+(section===name?"active":"")} onClick={()=>go(name as Section)}><Icon size={18}/><span>{name as string}</span></button>)}</div><div className="trust-card"><ShieldCheck size={17}/><div><b>Governed by design</b><small>Authorization remains the execution boundary.</small></div></div></div></aside>
   <main className="main"><div className="content"><section className="hero"><div><nav className="breadcrumb-nav" aria-label="Navigation path">{navStack.map((item,i)=><React.Fragment key={`${item}-${i}`}><button className={i===navStack.length-1?"current":""} onClick={()=>i<navStack.length-1&&jumpTo(i)} aria-current={i===navStack.length-1?"page":undefined}>{item}</button>{i<navStack.length-1&&<span aria-hidden="true">/</span>}</React.Fragment>)}</nav><div className="hero-title-row">{canGoBack&&<button className="hero-back" onClick={goBack}><ChevronLeft size={17}/><span>Back to {parentSection}</span></button>}<label className="eyebrow">LEGAKEYS · {section.toUpperCase()}</label></div><h1>{section==="Home"?"Good to see you":section}</h1><p>{subtitle[section]}</p></div><div className="hero-actions"><Status green={dbState==="CONNECTED"}>{dbState==="CONNECTED"?"Neon connected":dbState==="NOT_CONFIGURED"?"Neon not configured":dbState==="UNAVAILABLE"?"Neon unavailable":"Checking Neon"}</Status><button className="primary" onClick={()=>setAssistant(true)}><Sparkles size={16}/>Ask Constantyna</button></div></section>
    {section==="Home"&&<><section className="feature-grid"><article className="feature dark"><div className="kicker"><Sparkles size={14}/>Intelligence</div><h2>What matters now?</h2><p>Nothing is presented as live or verified until LegaKeys has a source and provenance for it.</p><button className="text" onClick={()=>setAssistant(true)}>Ask Constantyna <ArrowUpRight size={15}/></button></article><article className="feature light"><div className="kicker"><ShieldCheck size={14}/>Trust boundary</div><h2>Every important decision is explicit.</h2><p className="trust"><CheckCircle2 size={16}/>Identity ≠ authorization</p><p className="trust"><CheckCircle2 size={16}/>Capability ≠ authority</p><p className="trust"><CheckCircle2 size={16}/>Interface ≠ execution</p></article></section><section className="system-rail" aria-label="LegaKeys governed control plane"><div className="system-rail-head"><div><div className="kicker"><Compass size={14}/>Control plane</div><h2>One system. Seven governed layers.</h2><p>The complexity stays underneath the participant experience.</p></div><Status green={dbState==="CONNECTED"}>{dbState==="CONNECTED"?"Core data connected":"Architecture governed"}</Status></div><div className="system-flow">{[["World","Modelled"],["Identity","Bound"],["Context","Scoped"],["Authority","Decided"],["Execution","Gated"],["Evidence","Traceable"],["Intelligence","Learning"]].map(([n,s],i)=><div className="system-node" key={n}><span className="system-index">{String(i+1).padStart(2,"0")}</span><div><b>{n}</b><small>{s}</small></div>{i<6&&<ArrowUpRight className="system-arrow" size={13}/>}</div>)}</div></section><Block title="Start here" desc="Move through LegaKeys without learning the architecture underneath it."><div className="action-grid">{[["Places","See connected places",MapPin],["Services","Explore declared capabilities",Layers3],["Access","Access and visitor controls",KeyRound],["Payments","Payment infrastructure",WalletCards]].map(([n,d,I])=><button className="action-card" key={n as string} onClick={()=>go(n as Section)}><I size={18}/><span><b>{n as string}</b><small>{d as string}</small></span><ArrowUpRight size={15}/></button>)}</div></Block><Block title="Services" desc="LegaKeys-owned services. Providers are fulfillment connections, never the service owner." action={<button className="ghost" onClick={()=>go("Services")}>View all <ArrowUpRight size={14}/></button>}><div className="service-grid">{(liveServices.length?liveServices:services).slice(0,8).map((s:any)=><button className="service-card" key={s.service_id||s[0]} onClick={()=>go("Services")}><span className="service-icon"><Layers3 size={18}/></span><span><b>{s.canonical_name||s[0]}</b><small>{s.description||s[1]}</small></span><ArrowUpRight size={14}/></button>)}</div></Block><Block title="Deep platform" desc="The architecture is not hidden; it is simply revealed when useful."><div className="action-grid deep-grid">{deep.map(([n,d,I])=><button className="action-card" key={n as string} onClick={()=>go(n as Section)}><I size={18}/><span><b>{n as string}</b><small>{d as string}</small></span><ArrowUpRight size={15}/></button>)}</div></Block><Block title="Foundation" desc="The canonical substrate behind the product surface. Every domain is explicit; no declared capability is presented as live provider state."><div className="foundation-grid">{foundationDomains.map(([n,t,d])=><article className="foundation-card" key={n}><span>{n}</span><div><b>{t}</b><small>{d}</small></div><Status>CANONICAL</Status></article>)}</div></Block></>}
