@@ -32,7 +32,7 @@ left join information_schema.tables c
   on c.table_schema='legakeys' and c.table_name=e.table_name
 order by e.table_name;
 
-do $verify$$
+do $verify$
 declare
   missing_count integer;
   bad_fk_count integer;
