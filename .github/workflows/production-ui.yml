@@ -107,7 +107,7 @@ jobs:
           version="$(sed -n 's/^Current Version ID: //p' /tmp/legakeys-wrangler-deploy.log | tail -n 1)"
           test -n "$version" || { echo "Could not capture deployed Worker version ID"; exit 1; }
           echo "LEGAKEYS_VERSION_ID=$version" >> "$GITHUB_ENV"
-          npx wrangler versions deploy --version-id "$version" --percentage 100
+          npx wrangler versions deploy --version-id "$version" --percentage 100 --yes
           echo "Promoted Worker version to 100% traffic: $version"
       - name: Run production HTTP onboarding smoke test
         env:
