@@ -285,7 +285,6 @@ function WorkspaceCenter({mode,onMode}:{mode:"COMMUNITY_OPERATING"|"LEGAKEYS_OPE
 }
 function App(){
  const[preview,setPreview]=useState(true);
- useEffect(()=>installLegaTranslation(),[]);
  const[splash,setSplash]=useState(true);
  useEffect(()=>{const t=window.setTimeout(()=>setSplash(false),2600);return()=>window.clearTimeout(t)},[]);
  const sectionFromLocation=():Section=>{const raw=location.hash.replace(/^#/,"") as Section;return (["Home","Places","Services","Access","Payments","Activity","Workspaces","Identity","Intelligence","World","Execution"] as Section[]).includes(raw)?raw:"Home"};
@@ -409,4 +408,4 @@ function BeatAccessCenter(){
 }
 
 function DataSurface({icon,title,body,items}:{icon:React.ReactNode;title:string;body:string;items:string[]}){return <div className="data-surface"><div className="data-head"><span>{icon}</span><div><h2>{title}</h2><p>{body}</p></div></div><div className="data-items">{items.map((x,i)=><div key={x}><span>{String(i+1).padStart(2,"0")}</span><b>{x}</b><ArrowUpRight size={14}/></div>)}</div></div>}
-createRoot(document.getElementById("root")!).render(<React.StrictMode><App/></React.StrictMode>);
+createRoot(document.getElementById("root")!).render(<App/>);
