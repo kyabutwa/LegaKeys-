@@ -520,6 +520,10 @@ async function api(request: Request, env: Env): Promise<Response> {
         const accessPoints=await scopedQuery("accessPoints",`select cap.id,cap.access_point_id,cap.name,cap.scope,cap.state,cap.controller_provider_id,cap.controller_reference,cap.notes,ap.access_point_type,ap.lifecycle_state,ap.truth_state,ap.operational_state from legakeys.community_access_points cap join legakeys.access_points ap on ap.access_point_id=cap.access_point_id where cap.community_entity_id=$1 order by cap.updated_at desc limit 50`,[row.community_entity_id]);
         communities.push({community:{entity_id:row.community_entity_id,workspace_id:row.workspace_id,name:row.name,purpose:row.purpose,operator_entity_id:row.operator_entity_id,operator_type:row.operator_type,onboarding_state:row.onboarding_state,plan_code:row.plan_code,plan_version:row.plan_version,plan_state:row.plan_state,lifecycle:row.lifecycle,version:row.version},metrics:{people:Number(row.people_count),residents:Number(row.resident_count),workers:Number(row.worker_count),providers:Number(row.provider_count),open_work:Number(row.open_work_count),plans:Number(row.plan_count),configured_services:Number(row.configured_service_count)},people,providers,services,plans,work,accessPoints});
       }
+      } catch (e) {
+        const detail=e instanceof Error?e.message:String(e);
+        return cors(json({ok:false,state:"UNAVAILABLE",code:"DATABASE_ERROR",debug:detail.slice(0,500)},502),request);
+      }
       return cors(json({ok:true,state:"VERIFIED",selected_community_entity_id:selectedCommunityId||communities[0]?.community?.entity_id||null,data:communities,truth:{source:"canonical community operating tables",operator_scope:"authenticated community/organization identity, creator account, or explicit participant operator delegation",membership:"does not imply operating authority",service_control:"LegaKeys",provider_state:"declared/verified separately",authorization:"operational membership never substitutes for consequential authorization"}}),request);
     }
 
