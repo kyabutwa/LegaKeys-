@@ -6,14 +6,22 @@ import"./styles.css";
 type Section="Home"|"Places"|"Services"|"Access"|"Payments"|"Activity"|"Workspaces"|"Identity"|"Intelligence"|"World"|"Execution";
 const nav:[Section,React.ElementType][]= [["Home",Home],["Places",MapPin],["Services",Layers3],["Access",KeyRound],["Payments",WalletCards],["Activity",Activity]];
 
-type LegaLanguage="en"|"fr"|"sw"|"lg"|"es"|"ar";
+type LegaLanguage="en"|"fr"|"sw"|"lg"|"es"|"ar"|"ki"|"tz"|"lu"|"rw"|"rn"|"so"|"juba"|"ln";
 const LANGUAGE_OPTIONS:{code:LegaLanguage;label:string;native:string;dir:"ltr"|"rtl"}[]=[
  {code:"en",label:"English",native:"English",dir:"ltr"},
  {code:"fr",label:"French",native:"Français",dir:"ltr"},
  {code:"sw",label:"Swahili",native:"Kiswahili",dir:"ltr"},
  {code:"lg",label:"Kilega",native:"Kilega",dir:"ltr"},
  {code:"es",label:"Latino",native:"Español (Latino)",dir:"ltr"},
- {code:"ar",label:"Arabic",native:"العربية",dir:"rtl"}
+ {code:"ar",label:"Arabic",native:"العربية",dir:"rtl"},
+ {code:"ki",label:"Kenya — Kikuyu",native:"Gĩkũyũ",dir:"ltr"},
+ {code:"tz",label:"Tanzania — Kiswahili",native:"Kiswahili",dir:"ltr"},
+ {code:"lu",label:"Uganda — Luganda",native:"Luganda",dir:"ltr"},
+ {code:"rw",label:"Rwanda — Kinyarwanda",native:"Kinyarwanda",dir:"ltr"},
+ {code:"rn",label:"Burundi — Kirundi",native:"Ikirundi",dir:"ltr"},
+ {code:"so",label:"Somalia — Somali",native:"Soomaali",dir:"ltr"},
+ {code:"juba",label:"South Sudan — Juba Arabic",native:"عربي جوبا",dir:"rtl"},
+ {code:"ln",label:"DRC — Lingála",native:"Lingála",dir:"ltr"}
 ];
 const UI_TRANSLATIONS:Record<LegaLanguage,Record<string,string>>={
  en:{},
@@ -65,7 +73,30 @@ const UI_TRANSLATIONS:Record<LegaLanguage,Record<string,string>>={
   "Explore LegaKeys":"Explorar LegaKeys","View all":"Ver todo","Governed by design":"Gobernado por diseño","Authorization remains the execution boundary.":"La autorización sigue siendo el límite de ejecución.",
   "No Authorization → No Consequential Action.":"Sin autorización → Sin acción consecuente."
  },
- ar:{
+ ki:{
+  "Welcome Home":"Nĩ wega gũcoka mũciĩ","Home":"Mũciĩ","Identity":"Ũhoro wa mũndũ","Community":"Kĩama","Services":"Ũtungata","Access":"Kũingia","Payments":"Matuĩro","Activity":"Ũgĩciarĩ","Search":"Rũrĩa","Settings & account":"Mĩhĩrĩga na akaũnti","Join as a Participant":"Ũngĩrĩre ta mũthikĩrĩria","Join a Community":"Ũngĩrĩre kĩama","Choose your way in":"Hũthũrũra njĩra ya kũingia"
+ },
+ tz:{
+  "Welcome Home":"Karibu nyumbani","Home":"Nyumbani","Identity":"Utambulisho","Community":"Jumuiya","Services":"Huduma","Access":"Ufikiaji","Payments":"Malipo","Activity":"Shughuli","Search":"Tafuta","Settings & account":"Mipangilio na akaunti","Join as a Participant":"Jiunge kama mshiriki","Join a Community":"Jiunge na jumuiya","Choose your way in":"Chagua njia yako ya kuingia"
+ },
+ lu:{
+  "Welcome Home":"Tusanyuse okukulaba ewaka","Home":"Awaka","Identity":"Obumanyirivu","Community":"Ekitundu","Services":"Obuweereza","Access":"Okuyingira","Payments":"Okusasula","Activity":"Emirimu","Search":"Noonya","Settings & account":"Enteekateeka n'akawunti","Join as a Participant":"Yingira ng'omwetabye","Join a Community":"Yingira mu kitundu","Choose your way in":"Londa engeri gy'oyingiramu"
+ },
+ rw:{
+  "Welcome Home":"Murakaza neza iwanyu","Home":"Ahabanza","Identity":"Umwirondoro","Community":"Umuryango","Services":"Serivisi","Access":"Kwinjira","Payments":"Kwishyura","Activity":"Ibikorwa","Search":"Shakisha","Settings & account":"Igenamiterere na konti","Join as a Participant":"Injira nk'uwitabira","Join a Community":"Injira mu muryango","Choose your way in":"Hitamo uburyo bwo kwinjira"
+ },
+ rn:{
+  "Welcome Home":"Murakaza neza muhira","Home":"Ahabanza","Identity":"Umwirondoro","Community":"Umuryango","Services":"Serivisi","Access":"Kwinjira","Payments":"Kwishura","Activity":"Ibikorwa","Search":"Rondera","Settings & account":"Amagenamiterere na konti","Join as a Participant":"Injira nk'uwitabira","Join a Community":"Injira mu muryango","Choose your way in":"Hitamwo uburyo bwo kwinjira"
+ },
+ so:{
+  "Welcome Home":"Ku soo dhawo guriga","Home":"Hoyga","Identity":"Aqoonsi","Community":"Bulsho","Services":"Adeegyo","Access":"Gelitaan","Payments":"Lacag-bixin","Activity":"Hawlaha","Search":"Raadi","Settings & account":"Dejinta iyo akoonka","Join as a Participant":"Ku biir ka-qaybgale","Join a Community":"Ku biir bulsho","Choose your way in":"Dooro habka aad ku soo gasho"
+ },
+ juba:{
+  "Welcome Home":"أهلاً بيك في بيتك","Home":"الرئيسية","Identity":"الهوية","Community":"المجتمع","Services":"الخدمات","Access":"الدخول","Payments":"الدفع","Activity":"النشاط","Search":"بحث","Settings & account":"الإعدادات والحساب","Join as a Participant":"انضم كمشارك","Join a Community":"انضم إلى مجتمع","Choose your way in":"اختار طريقة الدخول"
+ },
+ ln:{
+  "Welcome Home":"Boyei bolamu na ndako","Home":"Ndako","Identity":"Bomoto","Community":"Lisanga","Services":"Misala","Access":"Kokota","Payments":"Mafuti","Activity":"Mosala","Search":"Luka","Settings & account":"Bobongisi mpe akaunti","Join as a Participant":"Kota lokola mosangani","Join a Community":"Kota na lisanga","Choose your way in":"Pona lolenge ya kokota"
+ }, ar:{
   "Welcome Home":"مرحباً بك في بيتك","Join as a Participant":"انضم كمشارك","Join a Community":"انضم إلى مجتمع","Join as a Community":"انضم كمجتمع",
   "Build your identity and enter LegaKeys as a person.":"أنشئ هويتك وادخل إلى LegaKeys كشخص.",
   "Enter a community where your participation and scope are explicit.":"ادخل مجتمعاً تكون فيه مشاركتك ونطاقك واضحين.",
