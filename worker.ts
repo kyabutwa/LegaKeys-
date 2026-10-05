@@ -142,7 +142,7 @@ async function api(request: Request, env: Env): Promise<Response> {
       const b=await request.json().catch(()=>null) as any,e=String(b?.email??"").trim().toLowerCase(),pw=String(b?.password??"");
       const r=(await query(env,`select a.account_id,a.state as account_state,c.state as credential_state,c.secret_reference from legakeys.credentials c join legakeys.accounts a on a.account_id=c.account_id where c.credential_type='EMAIL_PASSWORD' and c.subject_reference=$1 limit 1`,[e]))[0];
       if(!r||r.account_state!=="ACTIVE"||r.credential_state!=="ACTIVE"||!r.secret_reference||!(await verifyPassword(pw,String(r.secret_reference))))return cors(json({ok:false,state:"DENIED",code:"INVALID_CREDENTIALS"},401),request);
-      const raw=bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32))),secret=await sha256(raw),ss=await query(env,"insert into legakeys.sessions(account_id,state,session_secret_reference,last_seen_at,expires_at)values($1,'ACTIVE',$2,now(),now()+interval '7 days')returning session_id,expires_at",[r.account_id]);
+      const raw=bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32))),secret=await sha256(raw),ss=await query(env,"insert into legakeys.sessions(account_id,state,session_secret_reference,last_seen_at,expires_at)values($1,'ACTIVE',$2,now(),now()+interval '7 days')returning session_id,expires_at",[r.account_id,secret]);
       await query(env,"update legakeys.accounts set last_authenticated_at=now(),updated_at=now()where account_id=$1",[r.account_id]);
       const out=cors(json({ok:true,state:"AUTHENTICATED",session_id:ss[0].session_id,expires_at:ss[0].expires_at}),request),h=new Headers(out.headers);h.append("Set-Cookie",sessionCookie(raw));return new Response(out.body,{status:out.status,headers:h});
     }
