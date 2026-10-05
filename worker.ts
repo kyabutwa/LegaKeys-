@@ -67,7 +67,9 @@ async function api(request: Request, env: Env): Promise<Response> {
         "runtime_contract", "entities", "identities", "persons", "accounts", "credentials", "sessions",
         "participations", "participants", "identity_evidence", "identity_verifications", "biometric_enrollments", "device_authenticators", "places", "services", "service_versions", "service_offerings",
         "service_capabilities", "service_requests", "service_executions", "service_outcomes",
-        "actions", "action_executions", "authorization_decisions", "events", "evidence", "workspaces", "genesis_runs",
+        "actions", "action_executions", "authorization_decisions", "events", "evidence",
+        "access_points", "access_credentials", "access_operations", "access_validation_results", "access_provider_results", "access_events", "access_history",
+        "workspaces", "genesis_runs",
         "digital_twins", "community_profiles", "community_roster", "community_provider_links", "community_service_config", "community_work_orders", "community_plans", "community_plan_items"
       ];
       if (!rows[0]?.canonical_schema_present || !rows[0]?.runtime_contract_table_present) {
@@ -207,7 +209,7 @@ async function api(request: Request, env: Env): Promise<Response> {
       const principalRows=await query(env,`select entity_id from legakeys.identities where identity_id=$1 limit 1`,[principalEntityId]);
       if(!principalRows[0])return cors(json({ok:false,state:"DENIED",code:"IDENTITY_ENTITY_REQUIRED"},403),request);
       const principal=String(principalRows[0].entity_id);
-      const existing=await query(env,`select operation_id,operation_state from legakeys.access_operations where request_id=$1::uuid and idempotency_key=$2 limit 1`,[authorizationId,idempotencyKey]);
+      const existing=await query(env,`select operation_id,operation_state from legakeys.access_operations where authorization_id=$1 and principal_entity_id=$2 and idempotency_key=$3 limit 1`,[authorizationId,principal,idempotencyKey]);
       if(existing[0])return cors(json({ok:true,state:"IDEMPOTENT_REPLAY",operation_id:existing[0].operation_id,operation_state:existing[0].operation_state}),request);
       const auth=await query(env,`select ar.authorization_id,ar.principal_entity_id,ar.action_type,ar.target_entity_id,ad.decision,ad.decision_version,ad.policy_version,ad.effective_from,ad.expires_at,ad.evaluated_at
         from legakeys.authorization_requests ar
@@ -231,7 +233,7 @@ async function api(request: Request, env: Env): Promise<Response> {
         values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now(),now())`,[operationId,requestId,authorizationId,principal,actionType,targetEntityId,accessPointId,credentialId,state,a?.expires_at??null,idempotencyKey]);
       await query(env,`insert into legakeys.access_validation_results(validation_id,operation_id,authorization_valid,principal_match,action_match,target_match,scope_match,credential_valid,conditions_satisfied,replay_check_passed,execution_deadline_valid,result,reason_code,authorization_decision_version,policy_version)
         values($1,$2,$3,$4,$5,$6,$7,$8,true,true,$9,$10,$11,$12,$13)`,[crypto.randomUUID(),operationId,authValid,principalMatch,actionMatch,targetMatch,pointValid,credentialId?credentialValid:true,deadlineValid,valid?"VALID":"REJECTED",valid?null:"ACCESS_BINDING_REJECTED",a?.decision_version??null,a?.policy_version??null]);
-      return cors(json({ok:valid,state:valid?"AUTHORIZED_FOR_EXECUTION":"REJECTED",operation_id:operationId,request_id:requestId,truth:{authorization:"existing decision only",execution:"not yet attempted",physical_result:"not established"}}),valid?request:request);
+      return cors(json({ok:valid,state:valid?"AUTHORIZED_FOR_EXECUTION":"REJECTED",operation_id:operationId,request_id:requestId,truth:{authorization:"existing decision only",execution:"not yet attempted",physical_result:"not established"}}),request);
     }
 
     if(request.method==="POST"&&url.pathname==="/api/beataccess/operations/execute"){
