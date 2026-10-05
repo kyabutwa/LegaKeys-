@@ -161,3 +161,21 @@ BEATACCESS is green only if:
 ## Canonical invariant
 
 NO AUTHORIZATION -> NO ACCESS COMMAND.
+
+
+## L7 — Runtime vertical slice
+
+- BA-090 unauthenticated overview returns AUTH_REQUIRED.
+- BA-091 operation creation requires canonical participant session.
+- BA-092 operation requires an existing authorization ID; BeatAccess never creates authorization.
+- BA-093 authorization principal must match the authenticated identity.
+- BA-094 authorization decision must be ALLOW and currently effective.
+- BA-095 action and target bindings are rechecked at access-operation creation.
+- BA-096 access point must be declared and ACTIVE.
+- BA-097 credential, when supplied, must belong to the principal and be ACTIVE/in-window.
+- BA-098 idempotent replay returns the original operation rather than issuing another operation.
+- BA-099 execution rechecks operation state and authorization deadline.
+- BA-100 missing controller/provider produces PROVIDER_UNAVAILABLE and no command.
+- BA-101 provider/controller absence never becomes ACCESS_GRANTED.
+- BA-102 physical result remains UNKNOWN until reliable controller evidence exists.
+- BA-103 access operations are scoped to the authenticated principal in participant-facing reads.
