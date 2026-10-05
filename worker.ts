@@ -512,6 +512,7 @@ async function api(request: Request, env: Env): Promise<Response> {
     }
     if (request.method === "GET" && url.pathname === "/api/core-domains") {
       const domains = {
+        beataccess: ["access_points","access_credentials","access_operations","access_validation_results","access_provider_results","access_events","access_history"],
         workspaces: ["workspaces","workspace_memberships","workspace_capabilities","workspace_delegations","workspace_work_items","workspace_audit","community_profiles","community_roster","community_provider_links","community_service_config","community_work_orders","community_plans","community_plan_items"],
         digital_twin: ["digital_twins","digital_twin_properties","digital_twin_observations","digital_twin_relationships","digital_twin_transitions","digital_twin_scenarios"],
         constantyna: ["constantyna_runs","constantyna_inputs","constantyna_intents","constantyna_needs","constantyna_context_snapshots","constantyna_responses","constantyna_memory","constantyna_handoffs"],
