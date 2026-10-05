@@ -1,4 +1,5 @@
 name: LegaKeys Production UI
+# Canonical migration runner is intentionally rerunnable against the existing production database.
 
 on:
   push:
