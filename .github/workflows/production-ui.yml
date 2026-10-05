@@ -133,8 +133,8 @@ jobs:
             );
           DELETE FROM legakeys.workspace_memberships
             WHERE workspace_id IN (
-              SELECT workspace_id FROM legakeys.community_profiles
-              WHERE settings->>'join_code' LIKE 'LK-HTTP-SMOKE-%'
+              SELECT id FROM legakeys.workspaces
+              WHERE name LIKE '__HTTP_SMOKE_COMMUNITY_%'
             );
           DELETE FROM legakeys.community_profiles WHERE settings->>'join_code' LIKE 'LK-HTTP-SMOKE-%';
           DELETE FROM legakeys.workspaces WHERE name LIKE '__HTTP_SMOKE_COMMUNITY_%';
