@@ -190,6 +190,7 @@ async function api(request: Request, env: Env): Promise<Response> {
       return cors(json({ok:true,state:"RECORDED",modality,biometric_data_received:false,truth:{biometric_material:"not received/stored",device_biometric:"local signal only",authorization:"unchanged"}}),request);
     }
     if(request.method==="GET"&&url.pathname==="/api/beataccess/overview"){
+      if(!cookieValue(request, SESSION_COOKIE))return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const session=await canonicalSession(env,request);
       if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const points=await query(env,`select access_point_id,access_point_type,lifecycle_state,truth_state,operational_state,place_id,controller_provider_id,controller_reference,updated_at from legakeys.access_points order by updated_at desc limit 100`);
