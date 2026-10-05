@@ -1,6 +1,6 @@
 import React,{useEffect,useState}from"react";
 import heroAsset from "../IMG_1581.jpeg";
-import emblemFallback from "../IMG_1593.jpeg";
+import emblemLogo from "../assets/legakeys-logo-transparent.svg";
 import{createRoot}from"react-dom/client";
 import{Activity,ArrowUpRight,Bell,ChevronDown,CircleHelp,Clock3,Home,KeyRound,Layers3,MapPin,Menu,MoreHorizontal,Search,Settings2,ShieldCheck,Sparkles,UserRound,WalletCards,Wrench,X,Building2,Users,BriefcaseBusiness,CheckCircle2,AlertCircle,Plus,Globe2,Brain,GitBranch,Zap,LockKeyhole,Compass,LogIn,UserPlus,Handshake}from"lucide-react";
 import"./styles.css";
@@ -10,7 +10,7 @@ const nav:[Section,React.ElementType][]= [["Home",Home],["Places",MapPin],["Serv
 const services=[["BeatAccess","Access and entry",ShieldCheck],["BeatHome","Home operations",Home],["BeatMaintenance","Maintenance",Wrench],["BeatVisitor","Visitor access",Users],["BeatFacility","Facilities",Building2],["BeatPay","Payments",WalletCards]];
 const deep=[["Workspaces","Operate in authorized scopes",BriefcaseBusiness],["Identity","Identity & participation",KeyRound],["Intelligence","GENESIS + Constantyna",Brain],["World","World + digital twin",Globe2],["Execution","Action → Event → Evidence",Zap]];
 
-function Logo({light=false}:{light?:boolean}){return <div className={"brand "+(light?"brand-light":"")}><span className="brand-image"><img src={emblemFallback} alt="LegaKeys emblem"/></span><b>LegaKeys</b></div>}
+function Logo({light=false}:{light?:boolean}){return <div className={"brand "+(light?"brand-light":"")}><span className="brand-image brand-logo"><img src={emblemLogo} alt="LegaKeys"/></span></div>}
 function Status({children,green=false}:{children:React.ReactNode;green?:boolean}){return <span className={"status "+(green?"green":"")}><i/>{children}</span>}
 function SectionPage({children}:{children:React.ReactNode}){return <section className="page-section">{children}</section>}
 
