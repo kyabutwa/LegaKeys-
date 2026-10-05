@@ -269,6 +269,7 @@ CREATE TABLE IF NOT EXISTS legakeys.community_invitations (
   target_entity_id uuid REFERENCES legakeys.entities(entity_id),
   target_participant_ref uuid REFERENCES legakeys.participants(participant_id),
   relationship_type text NOT NULL CHECK (relationship_type IN ('RESIDENT','OWNER','TENANT','WORKER','MANAGER','VISITOR','MEMBER','GUEST','STUDENT','CONTRACTOR','OTHER')),
+  invitation_kind text NOT NULL DEFAULT 'PERSON' CHECK (invitation_kind IN ('PERSON','PROVIDER')),
   requested_role text,
   state text NOT NULL DEFAULT 'PENDING' CHECK (state IN ('PENDING','ACCEPTED','DECLINED','EXPIRED','REVOKED')),
   message text,
