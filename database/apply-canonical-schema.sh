@@ -44,6 +44,8 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/0001_runtime_resilience.sql
 
 echo "Applying database/0002_v1_1_0_governance.sql"
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/0002_v1_1_0_governance.sql
+echo "Applying database/0003_canonical_integrity_hardening.sql"
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/0003_canonical_integrity_hardening.sql
 
 echo "== Verifying canonical LegaKeys contract =="
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc   "select product_name || '|' || contract_version || '|' || canonical_schema || '|' || legacy_runtime_allowed || '|' || consequential_writes_enabled from legakeys.runtime_contract where contract_id=1"
