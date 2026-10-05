@@ -34,6 +34,11 @@ function SectionPage({children}:{children:React.ReactNode}){return <section clas
 
 function Landing({onEnter}:{onEnter:()=>void}){
  const[auth,setAuth]=useState<"create"|"signin"|null>(null);
+ const[authEmail,setAuthEmail]=useState("");
+ const[authPassword,setAuthPassword]=useState("");
+ const[authLegalName,setAuthLegalName]=useState("");
+ const[authBusy,setAuthBusy]=useState(false);
+ const[authError,setAuthError]=useState("");
  const[join,setJoin]=useState(false);
  return <div className="landing">
   <header className="landing-bar"><Logo light/><div className="landing-actions"><button className="landing-link" onClick={()=>setAuth("signin")}>Sign in</button><button className="landing-primary" onClick={()=>setAuth("create")}><UserPlus size={15}/>Create account</button></div></header>
