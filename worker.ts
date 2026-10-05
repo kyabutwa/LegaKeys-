@@ -234,7 +234,7 @@ async function api(request: Request, env: Env): Promise<Response> {
         union all
         select e.workspace_id,NULL::uuid,NULL::uuid,NULL::uuid,'COMMUNITY' from existing e
         limit 1
-      `,[participantId,name,ids.operator,ids.operatorIdentity,ids.entity,operatorType,organizationName,ids.workspace,purpose,ids.membership]);
+      `,[participantId,name,ids.operator,ids.operatorIdentity,ids.entity,operatorType,organizationName,ids.workspace,purpose,ids.membership,joinCode]);
       if(!rows[0]) return cors(json({ok:false,code:"COMMUNITY_CREATE_FAILED",message:"The participant could not create a community space."},400),request);
       return cors(json({ok:true,state:"CREATED",community_entity_id:rows[0].community_entity_id,operator_entity_id:rows[0].operator_entity_id,operator_type:rows[0].operator_type,workspace_id:rows[0].workspace_id,join_code:joinCode,role:"COMMUNITY_INITIATOR",truth:{community_space:"created",operator:"declared",authority:"not granted by creation",membership:"explicit",platform_services:"LegaKeys-controlled"}}),request);
     }
