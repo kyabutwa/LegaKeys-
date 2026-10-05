@@ -48,4 +48,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc   "select count(*) from information
 echo "== Verifying resilience policy =="
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc   "select policy_version || '|' || domain || '|' || max_retries || '|' || max_delay_ms from legakeys.runtime_resilience_policies where active=true order by domain"
 
-echo "== Canonical LegaKeys schema applied successfully =="
+echo "== Running complete canonical database verification =="
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/verify.sql
+
+echo "== Canonical LegaKeys schema applied and verified successfully =="
