@@ -1063,3 +1063,8 @@ h1,h2,h3,h4,h5,h6,
 @media(max-width:640px){.account-form-grid{grid-template-columns:1fr}.account-inline-input{max-width:145px}}
 
 .auth-recovery-panel{display:grid;gap:10px;margin-top:12px;padding:14px;border:1px solid rgba(88,214,141,.22);border-radius:16px;background:rgba(88,214,141,.055)}.auth-recovery-panel>b{font-size:13px}.auth-recovery-panel>small{color:#9eacbc;line-height:1.5}.auth-recovery-panel input{width:100%}.auth-recovery-panel .auth-switch{margin-top:0}
+
+
+/* Profile picture slots never resize surrounding text or controls. */
+.account-center-avatar{overflow:hidden;position:relative}.account-center-avatar img{display:block;width:100%;height:100%;object-fit:cover;object-position:center;border-radius:inherit}.profile-photo-row .account-setting-symbol{overflow:hidden}.profile-photo-row .account-setting-symbol img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}.profile-photo-actions{margin-left:auto;display:flex;align-items:center;gap:7px;flex:none}.profile-photo-input{display:none}.profile-photo-button{border:1px solid #dfe4ea;background:#f7f9fb;color:#172033;border-radius:9px;padding:7px 9px;font-size:9px;font-weight:700;cursor:pointer}.profile-photo-row>span:nth-child(2){min-width:0;flex:1}.profile-photo-row small{overflow-wrap:anywhere}.topbar-avatar{overflow:hidden}.topbar-avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:inherit}
+@media(max-width:520px){.profile-photo-actions{gap:4px}.profile-photo-button{padding:7px 6px}}
