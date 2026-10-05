@@ -14,7 +14,7 @@ function json(data: unknown, status = 200): Response {
 
 function cors(response: Response, request: Request): Response {
   const origin = request.headers.get("Origin");
-  if (!origin) return response;
+  if (!origin || origin !== new URL(request.url).origin) return response;
   const headers = new Headers(response.headers);
   headers.set("access-control-allow-origin", origin);
   headers.set("access-control-allow-credentials", "true");
