@@ -145,7 +145,8 @@ begin
     ('0000_canonical_runtime_contract.sql'),
     ('0001_runtime_resilience.sql'),
     ('0002_v1_1_0_governance.sql'),
-    ('0003_canonical_integrity_hardening.sql')
+    ('0003_canonical_integrity_hardening.sql'),
+    ('0004_identity_account_hardening.sql')
   ) expected(filename)
   where not exists (
     select 1 from legakeys.schema_migrations m
@@ -165,6 +166,8 @@ declare
   orphan_participants integer;
   identity_mismatch integer;
   active_session_mismatch integer;
+  active_participant_mismatch integer;
+  primary_credential_mismatch integer;
 begin
   select count(*) into orphan_participants
   from legakeys.participants p
@@ -181,6 +184,17 @@ begin
   join legakeys.accounts a on a.account_id = s.account_id
   where s.state = 'ACTIVE' and a.state in ('REVOKED','SUSPENDED','CLOSED');
 
+  select count(*) into active_participant_mismatch
+  from legakeys.participants p
+  join legakeys.participations pa on pa.participation_id=p.participation_id
+  join legakeys.identities i on i.identity_id=p.identity_id
+  where p.state='ACTIVE' and (pa.state<>'ACTIVE' or i.state<>'ACTIVE');
+
+  select count(*) into primary_credential_mismatch
+  from legakeys.accounts a
+  join legakeys.credentials c on c.credential_id=a.primary_credential_id
+  where a.primary_credential_id is not null and c.account_id<>a.account_id;
+
   if orphan_participants > 0 then
     raise exception 'LEGAKEYS_PARTICIPANT_ORPHANS: %', orphan_participants;
   end if;
@@ -189,6 +203,12 @@ begin
   end if;
   if active_session_mismatch > 0 then
     raise exception 'LEGAKEYS_ACTIVE_SESSION_ACCOUNT_MISMATCH: %', active_session_mismatch;
+  end if;
+  if active_participant_mismatch > 0 then
+    raise exception 'LEGAKEYS_ACTIVE_PARTICIPANT_STATE_MISMATCH: %', active_participant_mismatch;
+  end if;
+  if primary_credential_mismatch > 0 then
+    raise exception 'LEGAKEYS_PRIMARY_CREDENTIAL_ACCOUNT_MISMATCH: %', primary_credential_mismatch;
   end if;
 end $verify$;
 
