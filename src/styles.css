@@ -1043,3 +1043,6 @@ h1,h2,h3,h4,h5,h6,
 .beataccess-boundary{display:flex;gap:12px;padding:18px 20px;border:1px solid rgba(88,214,141,.25);border-radius:18px;background:rgba(88,214,141,.055)}.beataccess-boundary svg{color:#58d68d;flex:none}.beataccess-boundary b{font-size:12px}.beataccess-boundary p{margin:4px 0 0;color:var(--theme-muted);font-size:10px;line-height:1.65}
 @media(max-width:900px){.beataccess-hero{grid-template-columns:1fr}.beataccess-grid{grid-template-columns:1fr}.beat-card-wide{grid-column:auto}}
 @media(max-width:620px){.beataccess-hero>div:first-child,.beat-card{padding:19px}.beataccess-hero h2{font-size:30px}.evidence-upload-grid{grid-template-columns:1fr}.beat-metrics{grid-template-columns:1fr}.beataccess-flow{padding:10px}.beataccess-flow span{font-size:9px}.assurance-card{padding:19px}.assurance-card strong{font-size:26px}}
+
+/* Landing account cleanup: remove the stray vertical divider beside Participant. */
+.landing-account-side{border-left:0!important;border-right:0!important}.landing-signin{border-left:0!important}
