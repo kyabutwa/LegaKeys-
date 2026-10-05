@@ -169,6 +169,17 @@ async function api(request: Request, env: Env): Promise<Response> {
       const rows=await query(env,"insert into legakeys.account_settings(account_id,language,appearance,compact_mode,notifications,privacy) values($1,$2,$3,$4,$5::jsonb,$6::jsonb) on conflict(account_id) do update set language=excluded.language,appearance=excluded.appearance,compact_mode=excluded.compact_mode,notifications=excluded.notifications,privacy=excluded.privacy,updated_at=now() returning language,appearance,compact_mode,notifications,privacy,updated_at",[session.account_id,language,appearance,compactMode,notifications,privacy]);
       return cors(json({ok:true,state:"SETTINGS_UPDATED",data:rows[0]}),request);
     }
+    if(request.method==="POST"&&url.pathname==="/api/account/password/change"){
+      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const b=await request.json().catch(()=>null) as any;
+      const current=String(b?.currentPassword??""),next=String(b?.newPassword??""),confirmNext=String(b?.confirmPassword??"");
+      if(next.length<12||next.length>256||next!==confirmNext)return cors(json({ok:false,state:"INVALID_INPUT",code:next!==confirmNext?"PASSWORD_CONFIRMATION_MISMATCH":"PASSWORD_POLICY_FAILED"},400),request);
+      const credential=(await query(env,"select credential_id,secret_reference,state from legakeys.credentials where account_id=$1 and credential_type='EMAIL_PASSWORD' limit 1",[session.account_id]))[0];
+      if(!credential||credential.state!=="ACTIVE"||!credential.secret_reference||!(await verifyPassword(current,String(credential.secret_reference))))return cors(json({ok:false,state:"DENIED",code:"CURRENT_PASSWORD_INVALID"},401),request);
+      await query(env,"update legakeys.credentials set secret_reference=$1,updated_at=now() where credential_id=$2",[await passwordRecord(next),credential.credential_id]);
+      await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now() where account_id=$1 and session_id<>$2 and state='ACTIVE'",[session.account_id,session.session_id]);
+      return cors(json({ok:true,state:"PASSWORD_CHANGED",other_sessions_revoked:true}),request);
+    }
     if(request.method==="GET"&&url.pathname==="/api/account"){
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const sessions=await query(env,"select session_id,state,created_at,last_seen_at,expires_at,revoked_at from legakeys.sessions where account_id=$1 order by created_at desc",[r.account_id]),credentials=await query(env,"select credential_id,credential_type,state,verification_state,subject_reference,expires_at,revoked_at,created_at from legakeys.credentials where account_id=$1 order by created_at",[r.account_id]);return cors(json({ok:true,state:"AUTHENTICATED",data:{account:publicAccount(r),sessions,credentials}}),request);
