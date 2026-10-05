@@ -536,6 +536,15 @@ async function api(request: Request, env: Env): Promise<Response> {
       if(!communityId||!id||!["DECLINED","EXPIRED","REVOKED"].includes(state))return cors(json({ok:false,code:"INVITATION_STATUS_INVALID"},400),request); if(!await communityOperatorScope(env,session,communityId))return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
       await query(env,"update legakeys.community_invitations set state=$3,updated_at=now() where invitation_id=$1 and community_entity_id=$2 and state='PENDING'",[id,communityId,state]); return cors(json({ok:true,state:"UPDATED"}),request);
     }
+    if (request.method === "POST" && url.pathname === "/api/community/status") {
+      const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
+      const b=await request.json().catch(()=>({})); const communityId=String(b?.communityEntityId??""),state=String(b?.state??"").toUpperCase();
+      if(!communityId||!["CONFIGURING","ACTIVE","DEGRADED","SUSPENDED","ARCHIVED"].includes(state))return cors(json({ok:false,code:"COMMUNITY_STATUS_INPUT_INVALID"},400),request);
+      if(!await communityOperatorScope(env,session,communityId))return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
+      await query(env,"update legakeys.community_profiles set onboarding_state=$2,updated_at=now() where community_entity_id=$1",[communityId,state]);
+      await query(env,"update legakeys.workspaces set lifecycle=$2,updated_at=now() where id=(select workspace_id from legakeys.community_profiles where community_entity_id=$1)",[communityId,state==="ACTIVE"?"ACTIVE":state==="ARCHIVED"?"ARCHIVED":state==="SUSPENDED"?"SUSPENDED":"DEGRADED"]);
+      return cors(json({ok:true,state:"UPDATED",community_state:state}),request);
+    }
     if (request.method === "POST" && url.pathname === "/api/community/roster") {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),participantRef=String(b?.participantRef??""),relationship=String(b?.relationshipType??"MEMBER").toUpperCase();
