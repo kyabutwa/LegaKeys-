@@ -180,6 +180,23 @@ async function api(request: Request, env: Env): Promise<Response> {
       await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now() where account_id=$1 and session_id<>$2 and state='ACTIVE'",[session.account_id,session.session_id]);
       return cors(json({ok:true,state:"PASSWORD_CHANGED",other_sessions_revoked:true}),request);
     }
+    if(request.method==="POST"&&url.pathname==="/api/account/recovery-key"){
+      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const raw=bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32))),hash=await sha256(raw);
+      await query(env,"update legakeys.account_recovery_challenges set state='REVOKED',updated_at=now() where account_id=$1 and state='ACTIVE'",[session.account_id]);
+      await query(env,"insert into legakeys.account_recovery_challenges(account_id,token_hash,state,expires_at,requested_from) values($1,$2,'ACTIVE',now()+interval '365 days','SELF_SERVICE')",[session.account_id,hash]);
+      return cors(json({ok:true,state:"RECOVERY_KEY_CREATED",recovery_key:raw,expires_in_days:365}),request);
+    }
+    if(request.method==="POST"&&url.pathname==="/api/account/recovery-key/reset"){
+      const b=await request.json().catch(()=>null) as any,key=String(b?.recoveryKey??""),next=String(b?.newPassword??""),confirmNext=String(b?.confirmPassword??"");
+      if(!key||next.length<12||next.length>256||next!==confirmNext)return cors(json({ok:false,state:"INVALID_INPUT",code:next!==confirmNext?"PASSWORD_CONFIRMATION_MISMATCH":"RECOVERY_KEY_INPUT_INVALID"},400),request);
+      const hash=await sha256(key),r=(await query(env,"select recovery_challenge_id,account_id from legakeys.account_recovery_challenges where token_hash=$1 and state='ACTIVE' and expires_at>now() limit 1",[hash]))[0];
+      if(!r)return cors(json({ok:false,state:"DENIED",code:"RECOVERY_KEY_INVALID"},401),request);
+      await query(env,"update legakeys.credentials set secret_reference=$1,updated_at=now() where account_id=$2 and credential_type='EMAIL_PASSWORD' and state='ACTIVE'",[await passwordRecord(next),r.account_id]);
+      await query(env,"update legakeys.account_recovery_challenges set state='CONSUMED',consumed_at=now(),updated_at=now() where recovery_challenge_id=$1",[r.recovery_challenge_id]);
+      await query(env,"update legakeys.sessions set state='REVOKED',revoked_at=now() where account_id=$1 and state='ACTIVE'",[r.account_id]);
+      return cors(json({ok:true,state:"PASSWORD_RESET",sessions_revoked:true}),request);
+    }
     if(request.method==="GET"&&url.pathname==="/api/account"){
       const r=await canonicalSession(env,request);if(!r)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const sessions=await query(env,"select session_id,state,created_at,last_seen_at,expires_at,revoked_at from legakeys.sessions where account_id=$1 order by created_at desc",[r.account_id]),credentials=await query(env,"select credential_id,credential_type,state,verification_state,subject_reference,expires_at,revoked_at,created_at from legakeys.credentials where account_id=$1 order by created_at",[r.account_id]);return cors(json({ok:true,state:"AUTHENTICATED",data:{account:publicAccount(r),sessions,credentials}}),request);
