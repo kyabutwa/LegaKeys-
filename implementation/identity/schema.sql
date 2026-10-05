@@ -128,6 +128,9 @@ create table if not exists legakeys.account_settings (
   compact_mode boolean not null default false,
   notifications jsonb not null default '{"security":true,"account":true,"participation":true,"services":true,"community":true}'::jsonb,
   privacy jsonb not null default '{"activity_visibility":"private","evidence_visibility":"restricted"}'::jsonb,
+  profile_photo_data text,
+  profile_photo_mime text,
+  profile_photo_updated_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -146,3 +149,9 @@ create table if not exists legakeys.account_recovery_challenges (
 
 create index if not exists account_recovery_account_idx on legakeys.account_recovery_challenges(account_id, state);
 create index if not exists account_recovery_expiry_idx on legakeys.account_recovery_challenges(expires_at);
+
+
+-- Existing installations may already have account_settings; keep the photo columns additive and idempotent.
+alter table if exists legakeys.account_settings add column if not exists profile_photo_data text;
+alter table if exists legakeys.account_settings add column if not exists profile_photo_mime text;
+alter table if exists legakeys.account_settings add column if not exists profile_photo_updated_at timestamptz;
