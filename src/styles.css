@@ -200,3 +200,174 @@ html,body,#root{background:var(--theme-bg);color:var(--theme-text);transition:ba
   .brand-image{width:38px;height:38px}
   .bottom-nav{bottom:10px}
 }
+
+
+/* Mature floating-surface system: every primary card is a distinct elevation layer. */
+:root{
+  --card-shadow:
+    0 1px 1px rgba(255,255,255,.025) inset,
+    0 10px 24px rgba(0,0,0,.16),
+    0 28px 70px rgba(0,0,0,.16);
+  --card-shadow-hover:
+    0 1px 1px rgba(255,255,255,.04) inset,
+    0 14px 30px rgba(0,0,0,.18),
+    0 38px 90px rgba(0,0,0,.22);
+  --card-lift:-3px;
+  --card-highlight:rgba(255,255,255,.09);
+}
+html[data-theme="dark"]{
+  --card-shadow:
+    0 1px 0 rgba(255,255,255,.035) inset,
+    0 12px 28px rgba(0,0,0,.30),
+    0 34px 82px rgba(0,0,0,.27);
+  --card-shadow-hover:
+    0 1px 0 rgba(255,255,255,.06) inset,
+    0 18px 38px rgba(0,0,0,.34),
+    0 44px 105px rgba(0,0,0,.32);
+  --card-highlight:rgba(255,255,255,.10);
+}
+html[data-theme="light"]{
+  --card-shadow:
+    0 1px 0 rgba(255,255,255,.95) inset,
+    0 10px 25px rgba(22,35,55,.09),
+    0 30px 65px rgba(22,35,55,.07);
+  --card-shadow-hover:
+    0 1px 0 rgba(255,255,255,1) inset,
+    0 16px 32px rgba(22,35,55,.12),
+    0 42px 88px rgba(22,35,55,.10);
+  --card-highlight:rgba(255,255,255,.80);
+}
+html[data-theme="navy"]{
+  --card-shadow:
+    0 1px 0 rgba(255,255,255,.035) inset,
+    0 12px 28px rgba(0,0,0,.27),
+    0 34px 82px rgba(0,0,0,.23);
+  --card-shadow-hover:
+    0 1px 0 rgba(255,255,255,.06) inset,
+    0 18px 38px rgba(0,0,0,.31),
+    0 44px 105px rgba(0,0,0,.29);
+  --card-highlight:rgba(255,255,255,.09);
+}
+
+/* Shared physical depth: border + inset highlight + soft ambient shadow + lift. */
+.feature,
+.action-card,
+.service-card,
+.workspace-card,
+.landing-card,
+.data-surface,
+.notice,
+.identity-panel,
+.activity-list,
+.empty{
+  position:relative;
+  isolation:isolate;
+  transform:translate3d(0,0,0);
+  border:1px solid var(--theme-line);
+  border-radius:24px;
+  box-shadow:var(--card-shadow);
+  background:var(--theme-surface);
+  transition:
+    transform .24s cubic-bezier(.2,.8,.2,1),
+    box-shadow .24s cubic-bezier(.2,.8,.2,1),
+    border-color .24s ease,
+    background-color .2s ease;
+}
+
+/* A restrained top-edge highlight makes the elevation readable in every theme. */
+.feature::before,
+.action-card::before,
+.service-card::before,
+.workspace-card::before,
+.landing-card::before,
+.data-surface::before,
+.notice::before,
+.identity-panel::before,
+.activity-list::before,
+.empty::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  box-shadow:inset 0 1px 0 var(--card-highlight);
+  z-index:-1;
+}
+
+/* Cards visibly separate from the page without becoming noisy. */
+.feature:hover,
+.action-card:hover,
+.service-card:hover,
+.workspace-card:hover,
+.landing-card:hover,
+.data-surface:hover{
+  transform:translate3d(0,var(--card-lift),0);
+  box-shadow:var(--card-shadow-hover);
+  border-color:color-mix(in srgb,var(--theme-line) 70%,var(--theme-accent) 30%);
+}
+
+@media (hover:none){
+  .feature:hover,
+  .action-card:hover,
+  .service-card:hover,
+  .workspace-card:hover,
+  .landing-card:hover,
+  .data-surface:hover{
+    transform:none;
+    box-shadow:var(--card-shadow);
+  }
+}
+
+/* The major hero cards float one elevation above the ordinary card layer. */
+.feature{
+  box-shadow:
+    0 1px 0 var(--card-highlight) inset,
+    0 18px 38px rgba(0,0,0,.18),
+    0 42px 100px rgba(0,0,0,.16);
+}
+.feature:hover{
+  box-shadow:
+    0 1px 0 var(--card-highlight) inset,
+    0 22px 44px rgba(0,0,0,.22),
+    0 54px 120px rgba(0,0,0,.20);
+}
+
+/* Floating rails retain their own visual plane rather than collapsing into the page. */
+.landing-rail,
+.service-grid,
+.action-grid,
+.workspace-grid,
+.feature-grid{
+  position:relative;
+  isolation:isolate;
+}
+
+/* Small icon tiles float inside cards as a second elevation layer. */
+.service-icon,
+.workspace-icon,
+.activity-icon,
+.empty>span,
+.assistant-mark,
+.context-icon{
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.08) inset,
+    0 7px 18px rgba(0,0,0,.14);
+  transform:translateZ(0);
+}
+
+/* Keep floating cards comfortable on narrow screens. */
+@media(max-width:800px){
+  .feature,
+  .action-card,
+  .service-card,
+  .workspace-card,
+  .landing-card,
+  .data-surface,
+  .notice,
+  .identity-panel,
+  .activity-list,
+  .empty{
+    border-radius:20px;
+    box-shadow:var(--card-shadow);
+  }
+}
