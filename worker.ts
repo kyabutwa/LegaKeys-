@@ -1,5 +1,6 @@
 import { Client as PgClient } from "pg";
-import { Pool as NeonPool } from "@neondatabase/serverless";
+import { Pool as NeonPool, neonConfig } from "@neondatabase/serverless";
+neonConfig.poolQueryViaFetch = true;
 
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
