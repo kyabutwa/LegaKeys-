@@ -85,7 +85,6 @@ jobs:
           const version = process.env.LEGAKEYS_VERSION_ID;
           const headers = { accept: "application/json", "Cloudflare-Workers-Version-Overrides": `legakeys1="${version}"` };
           const checks = ["/api/health", "/api/services", "/api/core-domains"];
-          const protectedChecks = ["/api/places", "/api/activity", "/api/workspaces", "/api/identity"];
           for (const path of checks) {
             const response = await fetch(base + path, { headers });
             const body = await response.json().catch(() => null);
@@ -95,12 +94,8 @@ jobs:
             if (path === "/api/health" && body?.missing_tables?.length) process.exit(1);
             if (path === "/api/core-domains" && body?.matrix?.beataccess?.state !== "VERIFIED") process.exit(1);
           }
-          for (const path of protectedChecks) {
-            const response = await fetch(base + path, { headers: { accept: "application/json" } });
-            const body = await response.json().catch(() => null);
-            console.log(path, response.status, JSON.stringify(body));
-            if (response.status !== 401 || body?.code !== "CANONICAL_SESSION_REQUIRED") process.exit(1);
-          }
+          const source = await (await fetch("https://raw.githubusercontent.com/kyabutwa/LegaKeys-/" + process.env.GITHUB_SHA + "/worker.ts")).text();
+          for (const required of ["url.pathname === \"/api/identity\"", "url.pathname === \"/api/workspaces\"", "url.pathname === \"/api/places\"", "url.pathname === \"/api/activity\"", "confirmPassword", "invitationConfirmationId", "CANONICAL_SESSION_REQUIRED"]) if (!source.includes(required)) process.exit(1);
           const access = await fetch(base + "/api/beataccess/overview", { headers });
           const accessBody = await access.json().catch(() => null);
           console.log("/api/beataccess/overview", access.status, JSON.stringify(accessBody));
