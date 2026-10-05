@@ -5,6 +5,7 @@ compatibility_date = "2026-10-04"
 [assets]
 directory = "./dist"
 binding = "ASSETS"
+not_found_handling = "single-page-application"
 
 # Neon is the canonical production database.
 # A Cloudflare Hyperdrive binding may be added once its real ID is available.
