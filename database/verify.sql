@@ -126,3 +126,132 @@ begin
 end $$;
 
 select 'LEGAKEYS_DATABASE_VERIFICATION=GREEN' as result;
+
+-- Migration ledger: the canonical database must be able to prove which
+-- repository migrations were applied and when.
+do $
+declare
+  missing_migrations integer;
+begin
+  if not exists (
+    select 1 from information_schema.tables
+    where table_schema='legakeys' and table_name='schema_migrations'
+  ) then
+    raise exception 'LEGAKEYS_MIGRATION_LEDGER_MISSING';
+  end if;
+
+  select count(*) into missing_migrations
+  from (values
+    ('0000_canonical_runtime_contract.sql'),
+    ('0001_runtime_resilience.sql'),
+    ('0002_v1_1_0_governance.sql'),
+    ('0003_canonical_integrity_hardening.sql')
+  ) expected(filename)
+  where not exists (
+    select 1 from legakeys.schema_migrations m
+    where m.filename = expected.filename and m.state = 'APPLIED'
+  );
+
+  if missing_migrations > 0 then
+    raise exception 'LEGAKEYS_MIGRATION_LEDGER_INCOMPLETE: % migrations missing', missing_migrations;
+  end if;
+end $;
+
+-- Foundational relationship integrity: every participant must resolve to the
+-- same identity through its participation; every account must resolve to one
+-- canonical identity; every active session must resolve to an active account.
+do $
+declare
+  orphan_participants integer;
+  identity_mismatch integer;
+  active_session_mismatch integer;
+begin
+  select count(*) into orphan_participants
+  from legakeys.participants p
+  left join legakeys.participations pp on pp.participation_id = p.participation_id
+  where pp.participation_id is null;
+
+  select count(*) into identity_mismatch
+  from legakeys.participants p
+  join legakeys.participations pp on pp.participation_id = p.participation_id
+  where p.identity_id <> pp.identity_id;
+
+  select count(*) into active_session_mismatch
+  from legakeys.sessions s
+  join legakeys.accounts a on a.account_id = s.account_id
+  where s.state = 'ACTIVE' and a.state in ('REVOKED','SUSPENDED','CLOSED');
+
+  if orphan_participants > 0 then
+    raise exception 'LEGAKEYS_PARTICIPANT_ORPHANS: %', orphan_participants;
+  end if;
+  if identity_mismatch > 0 then
+    raise exception 'LEGAKEYS_PARTICIPANT_IDENTITY_MISMATCH: %', identity_mismatch;
+  end if;
+  if active_session_mismatch > 0 then
+    raise exception 'LEGAKEYS_ACTIVE_SESSION_ACCOUNT_MISMATCH: %', active_session_mismatch;
+  end if;
+end $;
+
+-- Lifecycle window integrity across the temporal foundation.
+do $
+declare
+  bad_windows integer;
+begin
+  select count(*) into bad_windows
+  from (
+    select effective_from, effective_to from legakeys.participations
+    union all
+    select effective_from, effective_to from legakeys.contexts
+    union all
+    select effective_from, effective_to from legakeys.context_references
+    union all
+    select effective_from, effective_to from legakeys.context_scope_refs
+    union all
+    select effective_from, effective_to from legakeys.capabilities
+    union all
+    select effective_from, effective_to from legakeys.capability_scopes
+    union all
+    select effective_from, effective_to from legakeys.capability_conditions
+  ) windows
+  where effective_from is not null
+    and effective_to is not null
+    and effective_to <= effective_from;
+
+  if bad_windows > 0 then
+    raise exception 'LEGAKEYS_INVALID_LIFECYCLE_WINDOWS: %', bad_windows;
+  end if;
+end $;
+
+-- Required canonical indexes. These are operational integrity guarantees,
+-- not performance-only conveniences.
+do $
+declare
+  missing_indexes integer;
+begin
+  select count(*) into missing_indexes
+  from (values
+    ('sessions_account_idx'),
+    ('sessions_expiry_idx'),
+    ('participation_identity_idx'),
+    ('participation_context_idx'),
+    ('participant_identity_idx'),
+    ('contexts_actor_idx'),
+    ('contexts_subject_idx'),
+    ('contexts_scope_idx'),
+    ('capabilities_subject'),
+    ('idx_capabilities_lifecycle'),
+    ('idx_community_roster_community'),
+    ('idx_community_roster_participant')
+  ) expected(index_name)
+  where not exists (
+    select 1
+    from pg_indexes i
+    where i.schemaname='legakeys' and i.indexname=expected.index_name
+  );
+
+  if missing_indexes > 0 then
+    raise exception 'LEGAKEYS_CANONICAL_INDEX_SET_INCOMPLETE: % indexes missing', missing_indexes;
+  end if;
+end $;
+
+select 'LEGAKEYS_CANONICAL_DATABASE_INTEGRITY=GREEN' as result;
