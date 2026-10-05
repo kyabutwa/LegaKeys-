@@ -1,4 +1,5 @@
-import { Client } from "pg";
+import { Client as PgClient } from "pg";
+import { Client as NeonClient } from "@neondatabase/serverless";
 
 interface Env {
   ASSETS: { fetch(request: Request): Promise<Response> };
@@ -40,7 +41,9 @@ function cors(response: Response, request: Request): Response {
 async function query(env: Env, sql: string, values: unknown[] = []): Promise<Row[]> {
   const connectionString = env.HYPERDRIVE?.connectionString ?? env.DATABASE_URL;
   if (!connectionString) throw Object.assign(new Error("DATABASE_NOT_CONFIGURED"), { code: "DATABASE_NOT_CONFIGURED" });
-  const client = new Client({ connectionString });
+  const client = env.HYPERDRIVE
+    ? new PgClient({ connectionString })
+    : new NeonClient(connectionString);
   try {
     await client.connect();
     return (await client.query(sql, values)).rows as Row[];
