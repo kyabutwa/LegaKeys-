@@ -67,22 +67,21 @@ jobs:
           sudo apt-get install -y postgresql-client
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/runtime-smoke.sql
 
-      - name: Configure Worker Neon database secret
+      - name: Deploy production Worker with Neon secret
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.LEGAKEYS }}
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: |
+          set -euo pipefail
           test -n "$DATABASE_URL" || { echo "NEON_DATABASE_URL GitHub secret is required"; exit 1; }
           DATABASE_URL="$(printf "%s" "$DATABASE_URL" | tr -d "\r\n")"
           export DATABASE_URL
-          printf '%s' "$DATABASE_URL" | npx wrangler secret put DATABASE_URL
-
-      - name: Deploy production Worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.LEGAKEYS }}
-        run: |
-          set -euo pipefail
-          npx wrangler deploy --strict | tee /tmp/legakeys-wrangler-deploy.log
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from "node:fs";
+          writeFileSync("/tmp/legakeys-secrets.json", JSON.stringify({DATABASE_URL: process.env.DATABASE_URL}));
+          NODE
+          npx wrangler deploy --strict --secrets-file /tmp/legakeys-secrets.json | tee /tmp/legakeys-wrangler-deploy.log
+          rm -f /tmp/legakeys-secrets.json
           version="$(sed -n 's/^Current Version ID: //p' /tmp/legakeys-wrangler-deploy.log | tail -n 1)"
           test -n "$version" || { echo "Could not capture deployed Worker version ID"; exit 1; }
           echo "LEGAKEYS_VERSION_ID=$version" >> "$GITHUB_ENV"
