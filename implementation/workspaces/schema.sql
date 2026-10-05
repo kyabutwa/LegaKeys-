@@ -250,3 +250,12 @@ CREATE TABLE IF NOT EXISTS legakeys.community_access_points (
   UNIQUE (community_entity_id, access_point_id)
 );
 CREATE INDEX IF NOT EXISTS idx_community_access_points_community ON legakeys.community_access_points(community_entity_id,state);
+
+
+-- Actor-neutral authorship for independent community and organization operating accounts.
+ALTER TABLE legakeys.community_plans ADD COLUMN IF NOT EXISTS created_by_actor_entity_id uuid;
+ALTER TABLE legakeys.community_work_orders ADD COLUMN IF NOT EXISTS created_by_actor_entity_id uuid;
+ALTER TABLE legakeys.community_plans ALTER COLUMN created_by_participant_ref DROP NOT NULL;
+ALTER TABLE legakeys.community_work_orders ALTER COLUMN created_by_participant_ref DROP NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_community_plans_actor ON legakeys.community_plans(created_by_actor_entity_id);
+CREATE INDEX IF NOT EXISTS idx_community_work_orders_actor ON legakeys.community_work_orders(created_by_actor_entity_id);
