@@ -210,6 +210,9 @@ jobs:
           const communityCookie=await login(community);
           m=await request("/api/me",{headers:{cookie:communityCookie}});
           if(!m.r.ok||!m.body?.ok||m.body?.data?.identity_type!=="COMMUNITY"||m.body?.data?.participant?.participant_id) throw new Error("community identity/session failed: HTTP "+m.r.status+" "+JSON.stringify(m.body));
+          let ops=await request("/api/community-ops",{headers:{cookie:communityCookie}});
+          if(!ops.r.ok||!ops.body?.ok||!Array.isArray(ops.body?.data)||ops.body.data.length!==1) throw new Error("independent community operating scope failed: HTTP "+ops.r.status+" "+JSON.stringify(ops.body));
+          if(ops.body.data[0]?.community?.entity_id!==c.body.community_entity_id) throw new Error("community operating scope resolved the wrong community: "+JSON.stringify(ops.body));
           const joinCode=c.body.join_code;
           c=await request("/api/community/join",{method:"POST",headers:{cookie:cookieA},body:JSON.stringify({inviteCode:joinCode})});
           if(!c.r.ok||!c.body?.ok) throw new Error("same-user community join failed: HTTP "+c.r.status+" "+JSON.stringify(c.body));
