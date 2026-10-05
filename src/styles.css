@@ -836,3 +836,117 @@ h1,h2,h3,h4,p,b,small,span,em,label{
 .landing-language-slot{display:flex;justify-content:flex-end;align-items:center}
 html[dir="rtl"] .language-switcher{direction:rtl}
 @media(max-width:520px){.language-switcher.compact{min-width:118px}.language-switcher.compact select{font-size:10px}.landing-language-slot{width:auto}}
+
+
+/* Breathable editorial typography — platform-wide, derived from the opening welcome */
+:root{
+  --lk-display:Georgia,"Times New Roman",serif;
+  --lk-body:Georgia,"Times New Roman",serif;
+}
+body,.app,.landing,.main,.content,.sidebar,.overlay,.modal,.command,.settings-modal{
+  font-family:var(--lk-body);
+}
+button,input,select,textarea{
+  font-family:var(--lk-body);
+}
+h1,h2,h3,h4,h5,h6,
+.hero h1,.hero h2,.hero h3,
+.feature h2,.section-head h2,
+.workspace-card h2,.identity-main h2,
+.empty h2,.landing-copy h1,.landing-copy h2,
+.landing-copy p,.landing-orientation-label,
+.entry-card b,.landing-service-pill,
+.topbar .brand-name,.sidebar .nav-item,
+.context b,.context small,.status,
+.primary,.secondary,.ghost,.text,
+.action-card b,.action-card small,
+.service-card b,.service-card small,.service-card em,
+.notice b,.notice p,.activity-row b,.activity-row p,
+.workspace-metric small,.workspace-metric strong,
+.language-menu,.language-switcher{
+  font-family:var(--lk-body);
+}
+.hero h1,.landing-copy h1{
+  letter-spacing:.012em;
+  line-height:1.10;
+  font-weight:600;
+}
+.hero p,.landing-copy p,.feature p,.workspace-card p,
+.empty p,.notice p,.activity-row p{
+  line-height:1.85;
+  letter-spacing:.008em;
+}
+.eyebrow,.kicker,.landing-orientation-label{
+  letter-spacing:.12em;
+  line-height:1.5;
+}
+.section-head,.hero,.feature-grid,.workspace-grid{
+  gap:24px;
+}
+.block{margin-top:52px}
+.section-head{margin-bottom:22px}
+.section-head h2,.feature h2,.workspace-card h2,.identity-main h2,.empty h2{
+  letter-spacing:.008em;
+  line-height:1.22;
+}
+.feature{padding:34px;min-height:255px}
+.feature h2{margin:42px 0 14px}
+.action-grid,.service-grid,.service-grid.wide{gap:16px}
+.action-card{min-height:132px;padding:21px}
+.service-card{min-height:116px;padding:19px;gap:14px}
+.action-card b,.service-card b{font-size:14px;line-height:1.35}
+.action-card small,.service-card small,.service-card em{font-size:11px;line-height:1.55}
+.notice{padding:20px;margin-bottom:18px}
+.notice b{font-size:14px}
+.empty{padding:76px 28px}
+.empty h2{font-size:24px}
+.workspace-card{padding:27px;min-height:230px}
+.workspace-card h2{font-size:21px;margin:20px 0 9px}
+.workspace-metric-grid{gap:16px;margin:24px 0}
+.workspace-metric{padding:19px;gap:13px}
+.workspace-metric small{font-size:10px;letter-spacing:.10em;line-height:1.5}
+.workspace-metric strong{font-size:23px;line-height:1.2}
+.sidebar-scroll{padding:30px 16px}
+.nav-section{margin-bottom:32px}
+.nav-section label{padding-bottom:12px;letter-spacing:.12em}
+.nav-item{height:48px;margin:3px 0;font-size:14px;line-height:1.35}
+.topbar{height:78px}
+.sidebar{top:78px}
+.main{padding-top:78px}
+.content{padding-top:50px;padding-bottom:100px}
+.landing-main{line-height:1.75}
+.landing-hero-rebuilt{min-height:720px}
+.landing-hero-rebuilt .landing-copy h1{
+  font-size:clamp(42px,5vw,70px);
+  line-height:1.08;
+  margin-bottom:24px;
+}
+.entry-grid{gap:16px}
+.entry-card{padding:23px;gap:18px;border-radius:21px}
+.entry-card b{font-size:17px;line-height:1.35}
+.entry-card small{font-size:12px;line-height:1.7;margin-top:7px}
+.landing-service-strip{gap:12px}
+.landing-service-pill{padding:16px;font-size:13px;line-height:1.45}
+@media(max-width:720px){
+  .content{padding:38px 18px 80px}
+  .hero h1,.landing-copy h1{line-height:1.12}
+  .feature{padding:27px}
+  .action-grid,.service-grid,.service-grid.wide{gap:12px}
+  .action-card{min-height:120px;padding:18px}
+  .service-card{min-height:104px;padding:16px}
+  .landing-hero-rebuilt{min-height:auto}
+}
+@media(max-width:520px){
+  .topbar{height:68px}
+  .sidebar{top:68px}
+  .main{padding-top:68px}
+  .content{padding:32px 16px 70px}
+  .hero h1,.landing-copy h1{font-size:clamp(34px,10vw,50px);line-height:1.12}
+  .hero p,.landing-copy p{font-size:14px;line-height:1.8}
+  .feature{padding:23px}
+  .feature h2{margin-top:32px}
+  .entry-card{padding:19px;gap:14px}
+  .entry-card b{font-size:15px}
+  .entry-card small{font-size:11px;line-height:1.65}
+  .landing-service-pill{padding:14px;font-size:12px}
+}
