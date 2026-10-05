@@ -177,6 +177,7 @@ function Logo({light=false,markOnly=false}:{light?:boolean;markOnly?:boolean}){
  },[]);
  return <div className={"brand "+(light?"brand-light":"")+" "+(markOnly?"brand-mark-only":"")} aria-label="LegaKeys"><span className="brand-image brand-logo"><img src={asset} alt="LegaKeys"/></span>{!markOnly&&<b className="brand-name">LegaKeys</b>}</div>
 }
+function Block({title,desc,action,children}:{title:string;desc?:string;action?:React.ReactNode;children:React.ReactNode}){return <section className="block"><div className="block-head"><div><h2>{title}</h2>{desc&&<p>{desc}</p>}</div>{action&&<div className="block-action">{action}</div>}</div>{children}</section>}
 function Status({children,green=false}:{children:React.ReactNode;green?:boolean}){return <span className={"status "+(green?"green":"")}><i/>{children}</span>}
 function SectionPage({children}:{children:React.ReactNode}){return <section className="page-section">{children}</section>}
 
