@@ -159,6 +159,13 @@ async function api(request: Request, env: Env): Promise<Response> {
       const rows=await query(env,"insert into legakeys.account_settings(account_id) values($1) on conflict(account_id) do update set account_id=excluded.account_id returning language,appearance,compact_mode,notifications,privacy,updated_at",[session.account_id]);
       return cors(json({ok:true,state:"AUTHENTICATED",data:rows[0]}),request);
     }
+    if(request.method==="POST"&&url.pathname==="/api/account/profile-photo"){
+      const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
+      const b=await request.json().catch(()=>null) as any;const data=String(b?.data??"").trim(),mime=String(b?.mimeType??"").toLowerCase().trim();
+      if(data.length<32||data.length>280000||!mime.startsWith("image/"))return cors(json({ok:false,state:"INVALID_INPUT",code:"PROFILE_PHOTO_INVALID"},400),request);
+      await query(env,`insert into legakeys.account_settings(account_id,profile_photo_data,profile_photo_mime,profile_photo_updated_at) values($1,$2,$3,now()) on conflict(account_id) do update set profile_photo_data=excluded.profile_photo_data,profile_photo_mime=excluded.profile_photo_mime,profile_photo_updated_at=now(),updated_at=now()`,[session.account_id,data,mime]);
+      return cors(json({ok:true,state:"PROFILE_PHOTO_UPDATED"}),request);
+    }
     if(request.method==="POST"&&url.pathname==="/api/account/settings"){
       const session=await canonicalSession(env,request);if(!session)return cors(json({ok:false,state:"AUTH_REQUIRED",code:"CANONICAL_SESSION_REQUIRED"},401),request);
       const b=await request.json().catch(()=>null) as any;
