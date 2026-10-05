@@ -156,7 +156,7 @@ const services=[["BeatAccess","Access and entry",ShieldCheck],["BeatHome","Home,
 const deep=[["Workspaces","Operate in authorized scopes",BriefcaseBusiness],["Identity","Identity & participation",KeyRound],["Intelligence","GENESIS + Constantyna",Brain],["World","World + digital twin",Globe2],["Execution","Action → Event → Evidence",Zap]];
 const foundationDomains=[["01","Runtime Contract","Canonical runtime boundary and cutover safety."],["02","Identity","Entity, identity, person, account, credential, session and participant."],["03","World","Places, physical entities, resources, relationships and world state."],["04","Context","Situation, scope, conditions and contextual references."],["05","Capability","Declared ability, scope, conditions, evidence and history."],["06","Authority","Authority sources, scopes, conditions, delegation and evidence."],["07","BeatAccess","Access points, credentials, evaluations, provider results and access events."],["08","BeatVisitor","Invitations, identity evidence, verification and visitor access lifecycle."],["09","Services","17 Beat services, offerings, capabilities, connections, requests, execution and outcomes."],["10","Action / Event / Evidence","Consequential action binding, execution, immutable events and evidence."],["11","GENESIS","Observation, findings, proposals, governed tools and evaluations."],["12","Digital Twin","Twin entities, properties, observations, relationships, transitions and scenarios."],["13","Workspaces","Community Operating and LegaKeys Operations with scoped membership and work."],["14","World Intelligence","Spatial, weather, Earth-system, climate and contextual intelligence."],["15","CONSTANTYNA","Human understanding, intent, needs, context, responses, memory and handoffs."]];
 
-function Logo({light=false}:{light?:boolean}){
+function Logo({light=false,markOnly=false}:{light?:boolean;markOnly?:boolean}){
  const[asset,setAsset]=useState("/legakeys-logo-transparent.svg");
  useEffect(()=>{
   let alive=true;const source=new Image();source.decoding="async";
@@ -214,7 +214,7 @@ function Landing({onEnter}:{onEnter:()=>void}){
  };
 
  return <div className="landing">
-  <header className="landing-bar landing-bar-floating"><div className="landing-bar-side"/><Logo light/><div className="landing-bar-side landing-language-slot"><LanguageSwitcher compact/></div></header>
+  <header className="landing-bar landing-bar-floating"><div className="landing-bar-side"/><Logo light markOnly/><div className="landing-bar-side"/></header>
   <main className="landing-main">
    <section className="landing-hero landing-hero-rebuilt">
     <div className="landing-copy">
