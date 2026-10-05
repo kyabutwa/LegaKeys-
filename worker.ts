@@ -65,7 +65,7 @@ async function api(request: Request, env: Env): Promise<Response> {
       const rows = await query(env, "select current_database() as database, current_schema() as schema, now() as server_time, exists (select 1 from information_schema.schemata where schema_name = 'legakeys') as canonical_schema_present, exists (select 1 from information_schema.tables where table_schema = 'legakeys' and table_name = 'runtime_contract') as runtime_contract_table_present");
       const requiredTables = [
         "runtime_contract", "entities", "identities", "persons", "accounts", "credentials", "sessions",
-        "participations", "participants", "places", "services", "service_versions", "service_offerings",
+        "participations", "participants", "identity_evidence", "identity_verifications", "biometric_enrollments", "device_authenticators", "places", "services", "service_versions", "service_offerings",
         "service_capabilities", "service_requests", "service_executions", "service_outcomes",
         "actions", "action_executions", "authorization_decisions", "events", "evidence", "workspaces", "genesis_runs",
         "digital_twins", "community_profiles", "community_roster", "community_provider_links", "community_service_config", "community_work_orders", "community_plans", "community_plan_items"
