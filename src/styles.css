@@ -383,3 +383,65 @@ html[data-theme="navy"]{
 .system-index{font-size:8px;color:var(--theme-accent);font-weight:900;letter-spacing:.08em}.system-node b,.system-node small{display:block;white-space:nowrap}.system-node b{font-size:10px;color:var(--theme-text)}.system-node small{font-size:8px;color:var(--theme-muted);margin-top:2px}.system-arrow{margin-left:auto;color:var(--theme-accent);flex:0 0 auto}
 @media(max-width:1050px){.system-flow{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:800px){.brand-image,.brand-image img{width:38px;height:38px}.brand-name{font-size:16px}.system-rail{padding:17px;border-radius:20px}.system-rail-head{align-items:flex-start;flex-direction:column}.system-flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.system-node{padding:10px 9px}.system-arrow{display:none}}
+
+/* Readability + motion contract: content always wins over material effects. */
+:root{
+  --readability-white:#ffffff;
+  --readability-soft:#f5f8ff;
+  --motion-distance:8px;
+  --motion-duration:420ms;
+  --motion-ease:cubic-bezier(.22,1,.36,1);
+}
+.landing-capability-card{
+  --cap-text:var(--readability-white);
+  --cap-muted:rgba(255,255,255,.86);
+  --cap-line:rgba(255,255,255,.20);
+  --cap-surface:linear-gradient(145deg,rgba(13,25,53,.97),rgba(9,18,40,.94));
+  color:var(--cap-text)!important;
+  background:var(--cap-surface)!important;
+  border:1px solid var(--cap-line)!important;
+  box-shadow:0 22px 55px rgba(0,0,0,.30),inset 0 1px 0 rgba(255,255,255,.13)!important;
+  transform:translate3d(0,0,0);
+  animation:capabilityFloat 6s var(--motion-ease) infinite;
+  transition:transform var(--motion-duration) var(--motion-ease),box-shadow var(--motion-duration) var(--motion-ease),border-color var(--motion-duration) var(--motion-ease);
+  overflow:hidden;
+  isolation:isolate;
+}
+.landing-capability-card:nth-child(2){animation-delay:-1.1s}
+.landing-capability-card:nth-child(3){animation-delay:-2.2s}
+.landing-capability-card:nth-child(4){animation-delay:-3.3s}
+.landing-capability-card::after{
+  content:"";position:absolute;inset:-35%;z-index:-1;pointer-events:none;
+  background:radial-gradient(circle at 30% 20%,rgba(88,214,141,.14),transparent 28%),radial-gradient(circle at 80% 80%,rgba(255,255,255,.07),transparent 32%);
+  animation:capabilityAura 8s ease-in-out infinite alternate;
+}
+.landing-capability-card:hover,.landing-capability-card:focus-within{
+  transform:translate3d(0,-7px,0) scale(1.012);
+  border-color:rgba(255,255,255,.42)!important;
+  box-shadow:0 30px 70px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.20)!important;
+}
+.capability-card-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.capability-index{font-size:10px;font-weight:900;letter-spacing:.14em;color:rgba(255,255,255,.64)}
+.capability-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;color:#fff;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.15)}
+.capability-copy h3{color:#fff!important;font-size:20px!important;font-weight:800;letter-spacing:-.035em;margin:18px 0 8px;text-shadow:0 1px 12px rgba(0,0,0,.32)}
+.capability-copy p{color:#fff!important;font-size:13px!important;line-height:1.58;margin:0;max-width:34ch;text-shadow:0 1px 10px rgba(0,0,0,.32)}
+.capability-arrow{margin-top:22px;color:#fff!important;filter:drop-shadow(0 2px 8px rgba(0,0,0,.3))}
+@keyframes capabilityFloat{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,calc(var(--motion-distance) * -1),0)}}
+@keyframes capabilityAura{from{transform:translate3d(-2%,0,0) scale(.98)}to{transform:translate3d(2%,2%,0) scale(1.04)}}
+@media(prefers-reduced-motion:reduce){
+  .landing-capability-card,.landing-capability-card::after{animation:none!important}
+  .landing-capability-card{transition:none!important}
+}
+@media(max-width:800px){
+  .landing-capability-card{animation-duration:7s}
+  .capability-copy h3{font-size:18px!important}
+  .capability-copy p{font-size:13px!important;line-height:1.55}
+}
+
+/* User-controlled visual governance: settings can change these tokens without rewriting components. */
+.appearance-governance{
+  display:grid;gap:12px;padding:12px;border:1px solid var(--theme-line);border-radius:18px;background:var(--theme-surface-2)
+}
+.appearance-governance label{font-size:11px;font-weight:800;color:var(--theme-text)}
+.appearance-governance input[type="range"]{width:100%;accent-color:var(--theme-accent)}
+.readability-contract{font-size:10px;line-height:1.5;color:var(--theme-muted)}
