@@ -628,7 +628,7 @@ async function api(request: Request, env: Env): Promise<Response> {
     if (request.method === "POST" && url.pathname === "/api/community/roster/status") {
       const session=await canonicalSession(env,request); if(!session)return cors(json({ok:false,code:"AUTH_REQUIRED"},401),request);
       const b=await request.json().catch(()=>({})) as any,communityId=String(b?.communityEntityId??""),id=String(b?.id??""),state=String(b?.state??"").toUpperCase();
-      if(!communityId||!id||!["ACTIVE","SUSPENDED","ENDED","REVOKED"].includes(state))return cors(json({ok:false,code:"ROSTER_STATUS_INPUT_INVALID"},400),request);
+      if(!communityId||!id||!["INVITED","ACTIVE","SUSPENDED","ENDED","REVOKED"].includes(state))return cors(json({ok:false,code:"ROSTER_STATUS_INPUT_INVALID"},400),request);
       const operator=await communityOperatorScope(env,session,communityId);
       if(!operator)return cors(json({ok:false,code:"COMMUNITY_OPERATOR_REQUIRED"},403),request);
       await query(env,`update legakeys.community_roster set state=$3,updated_at=now() where id=$1 and community_entity_id=$2`,[id,communityId,state]);
