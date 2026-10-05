@@ -1,0 +1,33 @@
+name: LegaKeys Canonical Neon Migration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Apply canonical LegaKeys schema in repository order
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL" || { echo "NEON_DATABASE_URL GitHub secret is required"; exit 1; }
+          chmod +x database/apply-canonical-schema.sh
+          ./database/apply-canonical-schema.sh
+      - name: Verify full canonical table inventory
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          expected='runtime_contract entities identities persons accounts credentials sessions participations participants places physical_entities resources world_relationships world_states world_observations contexts context_references context_conditions context_scope_refs capabilities capability_scopes capability_conditions capability_evidence capability_history authority_sources authorities authority_scopes authority_actions authority_conditions authority_evidence authority_delegations authority_history access_points access_credentials access_operations access_validation_results access_provider_results access_events access_history visitor_invitations visitor_identity_evidence visitor_ocr_extractions visitor_verifications visitor_access_sessions visitor_access_attempts visitor_lifecycle_events services service_versions service_offerings service_capabilities service_areas service_provider_connections service_availability service_requests service_executions service_outcomes service_events actions action_executions events event_outbox event_consumptions evidence action_outcomes authorization_decisions genesis_runs genesis_inputs genesis_findings genesis_proposals genesis_outputs genesis_tool_invocations genesis_evaluations digital_twins digital_twin_properties digital_twin_observations digital_twin_relationships digital_twin_transitions digital_twin_scenarios workspaces workspace_memberships workspace_capabilities workspace_delegations workspace_work_items workspace_audit spatial_observations map_features weather_observations earth_system_observations climate_indicators human_understandings contextual_understandings world_intelligence_quarantine world_intelligence_fibonacci_policies constantyna_runs constantyna_inputs constantyna_intents constantyna_needs constantyna_context_snapshots constantyna_responses constantyna_memory constantyna_handoffs'
+          for table in $expected; do
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "select 1 from information_schema.tables where table_schema='legakeys' and table_name='$table'" | grep -qx 1 || { echo "MISSING: $table"; exit 1; }
+          done
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "select product_name || '|' || contract_version || '|' || canonical_schema || '|' || legacy_runtime_allowed || '|' || consequential_writes_enabled from legakeys.runtime_contract where contract_id=1"
+          echo "FULL_CANONICAL_SCHEMA=GREEN"
