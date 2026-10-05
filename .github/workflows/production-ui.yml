@@ -74,7 +74,8 @@ jobs:
           version="$(sed -n 's/^Current Version ID: //p' /tmp/legakeys-wrangler-deploy.log | tail -n 1)"
           test -n "$version" || { echo "Could not capture deployed Worker version ID"; exit 1; }
           echo "LEGAKEYS_VERSION_ID=$version" >> "$GITHUB_ENV"
-          echo "Deployed Worker version: $version"
+          npx wrangler versions deploy --version-id "$version" --percentage 100
+          echo "Promoted Worker version to 100% traffic: $version"
       - name: Verify deployed canonical runtime
         env:
           LEGAKEYS_PRODUCTION_URL: https://legakeys1.kyabutwabis-f.workers.dev
