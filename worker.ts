@@ -68,7 +68,7 @@ async function api(request: Request, env: Env): Promise<Response> {
         "participations", "participants", "places", "services", "service_versions", "service_offerings",
         "service_capabilities", "service_requests", "service_executions", "service_outcomes",
         "actions", "action_executions", "authorization_decisions", "events", "evidence", "workspaces", "genesis_runs",
-        "digital_twins"
+        "digital_twins", "community_profiles", "community_roster", "community_provider_links", "community_service_config", "community_work_orders", "community_plans", "community_plan_items"
       ];
       if (!rows[0]?.canonical_schema_present || !rows[0]?.runtime_contract_table_present) {
         return cors(json({
@@ -363,7 +363,7 @@ async function api(request: Request, env: Env): Promise<Response> {
     }
     if (request.method === "GET" && url.pathname === "/api/core-domains") {
       const domains = {
-        workspaces: ["workspaces","workspace_memberships","workspace_capabilities","workspace_delegations","workspace_work_items","workspace_audit"],
+        workspaces: ["workspaces","workspace_memberships","workspace_capabilities","workspace_delegations","workspace_work_items","workspace_audit","community_profiles","community_roster","community_provider_links","community_service_config","community_work_orders","community_plans","community_plan_items"],
         digital_twin: ["digital_twins","digital_twin_properties","digital_twin_observations","digital_twin_relationships","digital_twin_transitions","digital_twin_scenarios"],
         constantyna: ["constantyna_runs","constantyna_inputs","constantyna_intents","constantyna_needs","constantyna_context_snapshots","constantyna_responses","constantyna_memory","constantyna_handoffs"],
         genesis: ["genesis_runs","genesis_inputs","genesis_findings","genesis_proposals","genesis_outputs","genesis_tool_invocations","genesis_evaluations"],
